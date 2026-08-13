@@ -1,4 +1,5 @@
 import { EnergyReadingRepository } from '../../domain/repositories/EnergyReadingRepository';
+import { supabase } from '../supabase/client';
 
 export class SimulationService {
   constructor(private repository: EnergyReadingRepository) {}
@@ -41,9 +42,13 @@ export class SimulationService {
   async seedHistoricalData(days: number = 7) {
     const readings = [];
     const now = new Date();
+    const currentHour = now.getHours();
     
     for (let d = days; d >= 0; d--) {
-      for (let h = 0; h < 24; h++) {
+      // For today (d=0), only generate up to the current hour to avoid "future" readings
+      const maxHour = d === 0 ? currentHour : 23;
+      
+      for (let h = 0; h <= maxHour; h++) {
         const simulatedDate = new Date(now);
         simulatedDate.setDate(now.getDate() - d);
         simulatedDate.setHours(h, 0, 0, 0);
@@ -73,10 +78,7 @@ export class SimulationService {
       }
     }
     
-    // Instead of using the repository which inserts 1 by 1, we can do a bulk insert via supabase directly for performance
-    // Let's import supabase
-    const { supabase } = require('../supabase/client');
-    
+    // Bulk insert for performance using the supabase client directly
     const { error } = await supabase
       .from('energy_readings')
       .insert(readings);
