@@ -1,15 +1,64 @@
 @import "tailwindcss";
 
+/* ─── Light Mode ──────────────────────────────────────────────────── */
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card-bg: #ffffff;
-  --card-border: #e2e8f0;
-  
-  --accent-consumption: #ef4444; /* red-500 */
-  --accent-solar: #10b981; /* emerald-500 */
+  --background: #f0f4f8;
+  --background-secondary: #e8eef5;
+  --foreground: #0d1b2e;
+  --foreground-muted: #4a6080;
+
+  --card-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(180, 200, 220, 0.7);
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+
+  --accent-consumption: #e53e3e;
+  --accent-consumption-light: rgba(229, 62, 62, 0.12);
+  --accent-consumption-glow: rgba(229, 62, 62, 0.25);
+
+  --accent-solar: #059669;
+  --accent-solar-light: rgba(5, 150, 105, 0.12);
+  --accent-solar-glow: rgba(5, 150, 105, 0.25);
+
+  --accent-balance-pos: #0284c7;
+  --accent-balance-neg: #dc2626;
+
+  --status-live: #10b981;
+
+  --header-bg: rgba(240, 244, 248, 0.85);
 }
 
+/* ─── Dark Mode ───────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #060d1a;
+    --background-secondary: #0b1628;
+    --foreground: #e8f0f8;
+    --foreground-muted: #7a99bb;
+
+    --card-bg: rgba(11, 22, 40, 0.80);
+    --card-border: rgba(30, 60, 100, 0.60);
+    --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+    --card-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 30, 80, 0.4);
+
+    --accent-consumption: #f87171;
+    --accent-consumption-light: rgba(248, 113, 113, 0.12);
+    --accent-consumption-glow: rgba(248, 113, 113, 0.20);
+
+    --accent-solar: #34d399;
+    --accent-solar-light: rgba(52, 211, 153, 0.12);
+    --accent-solar-glow: rgba(52, 211, 153, 0.20);
+
+    --accent-balance-pos: #38bdf8;
+    --accent-balance-neg: #f87171;
+
+    --status-live: #34d399;
+
+    --header-bg: rgba(6, 13, 26, 0.88);
+  }
+}
+
+/* ─── Tailwind Theme Bridge ───────────────────────────────────────── */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -17,42 +66,114 @@
   --color-card-border: var(--card-border);
   --color-accent-consumption: var(--accent-consumption);
   --color-accent-solar: var(--accent-solar);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-outfit);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #020617; /* slate-950 */
-    --foreground: #f8fafc; /* slate-50 */
-    --card-bg: #0f172a; /* slate-900 */
-    --card-border: #1e293b; /* slate-800 */
-    
-    --accent-consumption: #f87171; /* red-400 */
-    --accent-solar: #34d399; /* emerald-400 */
-  }
+/* ─── Base ────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
-  background-image: radial-gradient(circle at top, rgba(255,255,255,0.05) 0%, transparent 20%);
+  font-family: var(--font-outfit), var(--font-sans), Arial, sans-serif;
   min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(5, 150, 105, 0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(229, 62, 62, 0.05) 0%, transparent 60%);
 }
 
+@media (prefers-color-scheme: dark) {
+  body {
+    background-image:
+      radial-gradient(ellipse 80% 50% at 20% -10%, rgba(52, 211, 153, 0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 110%, rgba(248, 113, 113, 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 100% 60% at 50% 50%, rgba(14, 30, 60, 0.5) 0%, transparent 100%);
+  }
+}
+
+/* ─── Utilities ───────────────────────────────────────────────────── */
 @layer utilities {
+  /* Glass Card */
   .glass-card {
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);
-    backdrop-filter: blur(10px);
-    border-radius: 1rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    border-radius: 1.25rem;
+    box-shadow: var(--card-shadow);
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.25s ease;
   }
-  
+
   .glass-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-3px);
+    box-shadow: var(--card-shadow-hover);
   }
+
+  /* Glow variants */
+  .glow-consumption:hover {
+    box-shadow: var(--card-shadow-hover), 0 0 30px var(--accent-consumption-glow);
+  }
+
+  .glow-solar:hover {
+    box-shadow: var(--card-shadow-hover), 0 0 30px var(--accent-solar-glow);
+  }
+
+  /* Live badge pulse */
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--status-live);
+    animation: livePulse 2s ease-in-out infinite;
+  }
+
+  /* Shimmer skeleton */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--card-border) 25%,
+      rgba(255, 255, 255, 0.15) 50%,
+      var(--card-border) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  /* Progress bar fill */
+  .progress-bar-fill {
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+/* ─── Keyframes ───────────────────────────────────────────────────── */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  50%       { opacity: 0.8; transform: scale(1.15); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes numberReveal {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s ease-out both;
+}
+
+.animate-number {
+  animation: numberReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
