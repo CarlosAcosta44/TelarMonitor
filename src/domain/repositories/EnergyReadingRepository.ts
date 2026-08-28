@@ -7,15 +7,22 @@ export interface EnergyReadingRepository {
   getCurrentReading(type: ReadingType): Promise<EnergyReading | null>;
 
   /**
-   * Gets historical readings of a specific type.
-   * In a real application, this would accept a time range (start/end dates).
-   * For the MVP, we might just ask for the last N readings or the last 7 days.
+   * Gets the last N historical readings of a specific type, ascending by time.
    */
   getHistoricalReadings(type: ReadingType, limit?: number): Promise<EnergyReading[]>;
 
   /**
+   * Gets all readings of a specific type within a date range, ascending by time.
+   */
+  getReadingsByDateRange(type: ReadingType, from: Date, to: Date): Promise<EnergyReading[]>;
+
+  /**
+   * Returns the sum of value_kwh for a given type on a specific calendar day.
+   */
+  getDailyTotal(type: ReadingType, date: Date): Promise<number>;
+
+  /**
    * Inserts a new reading into the data store.
-   * Useful for the simulation aspect of the MVP.
    */
   insertReading(reading: Omit<EnergyReading, 'id' | 'recorded_at'>): Promise<EnergyReading>;
 }
