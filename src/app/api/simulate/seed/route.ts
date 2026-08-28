@@ -12,7 +12,8 @@ export async function POST() {
 
     return NextResponse.json({ message: 'Historical data seeded successfully' }, { status: 200 });
   } catch (error) {
+    const message = error instanceof Error ? error.message : JSON.stringify(error);
     console.error('Error seeding data:', error);
-    return NextResponse.json({ error: 'Failed to seed data' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to seed data', detail: message }, { status: 500 });
   }
 }
