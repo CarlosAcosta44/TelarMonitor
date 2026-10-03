@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/infrastructure/supabase/client';
+import { SaveTelemetry } from '@/application/use-cases/SaveTelemetry';
+import { SupabaseEnergyReadingRepository } from '@/infrastructure/supabase/SupabaseEnergyReadingRepository';
 
 // Endpoint para recibir telemetría de hardware real (ESP32/IoT)
 export async function POST(req: Request) {
@@ -11,36 +12,25 @@ export async function POST(req: Request) {
     }
 
     // 2. Parsear y validar el payload
-    // Formato esperado: { "reading_type": "consumption" | "solar_generation", "value_kwh": 1.25 }
     const body = await req.json();
     
-    if (!body.reading_type || typeof body.value_kwh !== 'number') {
-      return NextResponse.json({ error: 'Estructura de payload inválida' }, { status: 400 });
-    }
+    // 3. Ejecutar Caso de Uso (Arquitectura Limpia)
+    const repo = new SupabaseEnergyReadingRepository();
+    const saveTelemetry = new SaveTelemetry(repo);
 
-    if (!['consumption', 'solar_generation'].includes(body.reading_type)) {
-      return NextResponse.json({ error: 'Tipo de lectura no soportado' }, { status: 400 });
-    }
-
-    // 3. Insertar el dato en crudo en la base de datos de Supabase
-    const { error } = await supabase
-      .from('energy_readings')
-      .insert([
-        {
-          reading_type: body.reading_type,
-          value_kwh: body.value_kwh,
-          recorded_at: new Date().toISOString()
-        }
-      ]);
-
-    if (error) {
-      console.error('Error insertando telemetría IoT:', error);
-      return NextResponse.json({ error: 'Error persistiendo en base de datos' }, { status: 500 });
+    try {
+      await saveTelemetry.execute(body.reading_type, body.value_kwh);
+    } catch (err: any) {
+      if (err.message.includes('inválido')) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
     }
 
     // 4. Confirmar recepción al hardware (ESP32)
     return NextResponse.json({ message: 'Lectura sincronizada exitosamente' }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: 'Petición HTTP malformada' }, { status: 400 });
+    console.error('Error procesando telemetría IoT:', error);
+    return NextResponse.json({ error: 'Error interno o petición malformada' }, { status: 500 });
   }
 }
