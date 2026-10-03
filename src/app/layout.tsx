@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { Sidebar } from "@/components/Sidebar";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
 const outfit = localFont({
   src: [
@@ -25,112 +27,38 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <body className={`${outfit.variable} antialiased flex flex-col min-h-screen`}>
-        {/* ── Header ───────────────────────────────────────────── */}
-        <header
-          className="w-full sticky top-0 z-50"
-          style={{
-            backgroundColor: "var(--header-bg)",
-            borderBottom: "1px solid var(--card-border)",
-            backdropFilter: "blur(20px) saturate(180%)",
-            WebkitBackdropFilter: "blur(20px) saturate(180%)",
-          }}
-        >
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            {/* Brand */}
-            <div className="flex items-center gap-3">
-              {/* Logo Icon */}
-              <div
-                className="relative w-9 h-9 rounded-xl flex items-center justify-center overflow-hidden shrink-0"
-                style={{
-                  background: "linear-gradient(135deg, var(--accent-solar) 0%, var(--accent-consumption) 100%)",
-                  boxShadow: "0 4px 12px var(--accent-solar-glow)",
-                }}
-              >
-                {/* Lightning bolt SVG */}
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M13 2L4.5 13.5H11.5L11 22L19.5 10.5H12.5L13 2Z"
-                    fill="white"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                {/* Shine overlay */}
-                <div
-                  className="absolute inset-0 opacity-20"
-                  style={{
-                    background: "linear-gradient(135deg, white 0%, transparent 60%)",
-                  }}
-                />
-              </div>
+    <html lang="es" suppressHydrationWarning>
+      <body className={`${outfit.variable} antialiased min-h-screen text-slate-900 dark:text-slate-100 flex transition-colors duration-300`}>
+        <ThemeProvider>
+          {/* Sidebar (Fixed width) */}
+          <Sidebar />
 
-              <div>
-                <h1
-                  className="text-xl font-bold tracking-tight leading-none"
-                  style={{ color: "var(--foreground)" }}
-                >
-                  Telar Monitor
-                </h1>
-                <p
-                  className="text-xs mt-0.5"
-                  style={{ color: "var(--foreground-muted)" }}
-                >
-                  Energía en tiempo real
-                </p>
+          {/* Main Content Area (Flexible, offset by Sidebar width) */}
+          <div className="flex-1 ml-64 flex flex-col min-h-screen transition-colors duration-300">
+            <main className="flex-1 px-8 py-8 w-full max-w-7xl mx-auto">
+              {children}
+            </main>
+            
+            {/* Global Footer (Status Bar) */}
+            <footer className="h-12 border-t border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-[#060d1a]/50 backdrop-blur-md px-8 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0 transition-colors duration-300">
+              <div className="flex items-center gap-6">
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Sistema Telar Monitor: Conectado
+                </span>
+                <span className="w-px h-4 bg-slate-200 dark:bg-slate-700"></span>
+                <span>Actualización automática cada 10 s</span>
               </div>
-            </div>
-
-            {/* Right side — LIVE badge */}
-            <div className="flex items-center gap-3">
-              <div
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold tracking-wide"
-                style={{
-                  background: "var(--accent-solar-light)",
-                  border: "1px solid var(--accent-solar-glow)",
-                  color: "var(--accent-solar)",
-                }}
-              >
-                <span className="live-dot" />
-                EN VIVO
+              <div className="flex items-center gap-4">
+                <span className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium">
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  3.2 kg CO₂ evitado hoy
+                </span>
+                <span>© 2026 Telar Monitor</span>
               </div>
-            </div>
+            </footer>
           </div>
-        </header>
-
-        {/* ── Main ─────────────────────────────────────────────── */}
-        <main className="flex-1 max-w-7xl mx-auto w-full px-6 py-8">
-          {children}
-        </main>
-
-        {/* ── Footer ───────────────────────────────────────────── */}
-        <footer
-          className="w-full py-4 mt-4"
-          style={{
-            borderTop: "1px solid var(--card-border)",
-          }}
-        >
-          <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-            <span
-              className="text-xs"
-              style={{ color: "var(--foreground-muted)" }}
-            >
-              © 2026 Telar Monitor · Dashboard de Energía Solar
-            </span>
-            <span
-              className="text-xs"
-              style={{ color: "var(--foreground-muted)" }}
-            >
-              Actualización automática cada 10 s
-            </span>
-          </div>
-        </footer>
+        </ThemeProvider>
       </body>
     </html>
   );

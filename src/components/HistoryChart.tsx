@@ -5,6 +5,8 @@ import {
   AreaChart,
   Bar,
   BarChart,
+  ComposedChart,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -12,8 +14,9 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { Zap, Sun, Clock } from 'lucide-react';
+import Link from 'next/link';
 
-export type ChartRange = '24h' | '7d';
+export type ChartRange = '24h' | '7d' | '30d';
 
 export interface ChartDataPoint {
   label: string;
@@ -128,77 +131,14 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
     : `Últimas 24 horas · ${data.length} lecturas`;
 
   return (
-    <div className="glass-card p-6 w-full animate-fade-in-up" style={{ animationDelay: '240ms' }}>
-      {/* ── Card header ─── */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <h3 className="text-base font-bold tracking-tight" style={{ color: 'var(--foreground)' }}>
-            Histórico de Energía
-          </h3>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--foreground-muted)' }}>
-            {rangeLabel}
-          </p>
-        </div>
-
-        {/* Range tabs + legend */}
-        <div className="flex items-center gap-4 flex-wrap">
-          {/* Range tab links (Server-side navigation via URL params) */}
-          <div
-            className="flex rounded-lg overflow-hidden text-xs font-semibold"
-            style={{ border: '1px solid var(--card-border)' }}
-          >
-            <a
-              href="/?range=24h"
-              className="px-3 py-1.5 transition-colors"
-              style={{
-                background: range === '24h' ? 'var(--accent-solar-light)' : 'transparent',
-                color: range === '24h' ? 'var(--accent-solar)' : 'var(--foreground-muted)',
-                borderRight: '1px solid var(--card-border)',
-              }}
-            >
-              24 h
-            </a>
-            <a
-              href="/?range=7d"
-              className="px-3 py-1.5 transition-colors"
-              style={{
-                background: range === '7d' ? 'var(--accent-solar-light)' : 'transparent',
-                color: range === '7d' ? 'var(--accent-solar)' : 'var(--foreground-muted)',
-              }}
-            >
-              7 días
-            </a>
-          </div>
-
-          {/* Legend */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div
-                className="w-7 h-2.5 rounded-full"
-                style={{ background: 'linear-gradient(to right, var(--accent-solar), rgba(52,211,153,0.4))' }}
-              />
-              <span className="text-xs font-medium" style={{ color: 'var(--foreground-muted)' }}>
-                Solar
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div
-                className="w-7 h-2.5 rounded-full"
-                style={{ background: 'linear-gradient(to right, var(--accent-consumption), rgba(248,113,113,0.4))' }}
-              />
-              <span className="text-xs font-medium" style={{ color: 'var(--foreground-muted)' }}>
-                Consumo
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="w-full animate-fade-in-up" style={{ animationDelay: '240ms' }}>
+      {/* ── Chart ─── */}
 
       {/* ── Chart ─── */}
       <div style={{ height: '320px', width: '100%' }}>
         <ResponsiveContainer width="100%" height="100%">
           {range === '7d' ? (
-            /* Bar chart for 7-day view — daily totals are better as bars */
+            /* Bar chart for 7-day view — perfect for small number of discrete days */
             <BarChart data={data} margin={{ top: 6, right: 4, left: -24, bottom: 0 }}>
               <CartesianGrid strokeDasharray="4 4" stroke="var(--card-border)" vertical={false} strokeOpacity={0.6} />
               <XAxis
@@ -220,6 +160,46 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
               <Bar dataKey="solar"       name="Solar"   fill="var(--accent-solar)"       radius={[4,4,0,0]} maxBarSize={36} />
               <Bar dataKey="consumption" name="Consumo" fill="var(--accent-consumption)" radius={[4,4,0,0]} maxBarSize={36} />
             </BarChart>
+          ) : range === '30d' ? (
+            /* Composed chart for 30-day view — Area for solar, Line for consumption to show trends clearly */
+            <ComposedChart data={data} margin={{ top: 6, right: 4, left: -24, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradSolar" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="var(--accent-solar)"       stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="var(--accent-solar)"       stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="4 4" stroke="var(--card-border)" vertical={false} strokeOpacity={0.6} />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                minTickGap={30}
+                tick={{ fill: 'var(--foreground-muted)', fontSize: 11, fontWeight: 500 }}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fill: 'var(--foreground-muted)', fontSize: 11, fontWeight: 500 }}
+                tickFormatter={(v) => `${v}`}
+              />
+              <Tooltip
+                content={<CustomTooltip range={range} />}
+                cursor={{ stroke: 'var(--card-border)', strokeWidth: 1, strokeDasharray: '4 4' }}
+              />
+              <Area
+                type="monotone" dataKey="solar" name="Solar"
+                stroke="var(--accent-solar)" strokeWidth={2.5} fill="url(#gradSolar)"
+                dot={false}
+                activeDot={{ r: 5, fill: 'var(--accent-solar)', stroke: 'var(--card-bg)', strokeWidth: 2 }}
+              />
+              <Line
+                type="monotone" dataKey="consumption" name="Consumo"
+                stroke="var(--accent-consumption)" strokeWidth={2.5}
+                dot={false}
+                activeDot={{ r: 5, fill: 'var(--accent-consumption)', stroke: 'var(--card-bg)', strokeWidth: 2 }}
+              />
+            </ComposedChart>
           ) : (
             /* Area chart for 24h view — minute-level granularity */
             <AreaChart data={data} margin={{ top: 6, right: 4, left: -24, bottom: 0 }}>
@@ -266,6 +246,22 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
             </AreaChart>
           )}
         </ResponsiveContainer>
+      </div>
+
+      {/* Insight Banner */}
+      <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 w-5 h-5 rounded-full bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200/50 flex items-center justify-center shrink-0">
+            <svg className="w-3 h-3 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Durante las horas centrales de hoy, <strong className="text-slate-700 dark:text-slate-300">el 100% de la energía consumida provino del sol</strong> sin costo de la red eléctrica.
+          </p>
+        </div>
+        <button className="text-xs font-bold text-amber-600 dark:text-amber-500 hover:text-amber-700 transition-colors flex items-center gap-1 shrink-0">
+          Ver detalle de consumo por electrodoméstico
+          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
       </div>
     </div>
   );

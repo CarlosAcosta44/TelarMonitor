@@ -1,106 +1,65 @@
 import { Zap } from 'lucide-react';
-import clsx from 'clsx';
 
 interface ConsumptionCardProps {
   valueKwh: number;
-  className?: string;
 }
 
-export function ConsumptionCard({ valueKwh, className }: ConsumptionCardProps) {
+export function ConsumptionCard({ valueKwh }: ConsumptionCardProps) {
+  // Demo text logic
+  let statusText = '• Consumo Moderado';
+  let statusColor = 'text-blue-600 dark:text-blue-400';
+  let dotColor = 'bg-blue-500';
+
+  if (valueKwh < 1.0) {
+    statusText = '• Consumo Bajo y Óptimo';
+    statusColor = 'text-emerald-600 dark:text-emerald-400';
+    dotColor = 'bg-emerald-500';
+  } else if (valueKwh > 5.0) {
+    statusText = '• Consumo Elevado (Pico)';
+    statusColor = 'text-red-600 dark:text-red-400';
+    dotColor = 'bg-red-500';
+  }
+
   return (
-    <div
-      className={clsx(
-        'glass-card glow-consumption p-6 flex flex-col relative overflow-hidden animate-fade-in-up',
-        className
-      )}
-      style={{ animationDelay: '0ms' }}
-    >
-      {/* ── Decorative background icon ─── */}
-      <div
-        className="absolute -top-4 -right-4 opacity-[0.07]"
-        style={{ color: 'var(--accent-consumption)' }}
-      >
-        <Zap size={120} strokeWidth={1.5} />
-      </div>
-
-      {/* ── Top accent bar ─── */}
-      <div
-        className="absolute top-0 left-0 h-[3px] w-full rounded-t-[1.25rem]"
-        style={{
-          background:
-            'linear-gradient(to right, var(--accent-consumption), transparent)',
-        }}
-      />
-
-      {/* ── Header ─── */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-2.5">
-          <div
-            className="p-2 rounded-xl"
-            style={{
-              background: 'var(--accent-consumption-light)',
-              color: 'var(--accent-consumption)',
-              border: '1px solid var(--accent-consumption-glow)',
-            }}
-          >
-            <Zap size={18} strokeWidth={2.5} />
+    <div className="bg-white dark:bg-[#0B1628] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between h-full shadow-sm">
+      <div>
+        {/* Header inline */}
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+            <Zap className="w-4 h-4" />
           </div>
           <div>
-            <p
-              className="text-xs font-semibold tracking-widest uppercase"
-              style={{ color: 'var(--foreground-muted)' }}
-            >
-              Consumo
-            </p>
-            <p className="text-xs" style={{ color: 'var(--foreground-muted)', opacity: 0.7 }}>
-              Demanda actual
+            <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              Consumo Actual
+            </h3>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Demanda de tu hogar en tiempo real
             </p>
           </div>
         </div>
 
-        {/* Status badge */}
-        <div
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide"
-          style={{
-            background: 'var(--accent-consumption-light)',
-            color: 'var(--accent-consumption)',
-          }}
-        >
-          <span
-            className="w-1.5 h-1.5 rounded-full animate-pulse"
-            style={{ background: 'var(--accent-consumption)' }}
-          />
-          LIVE
+        {/* Big Value */}
+        <div className="flex items-baseline gap-1.5 mb-4">
+          <span className="text-4xl font-extrabold tabular-nums text-slate-900 dark:text-white">
+            {valueKwh.toFixed(2)}
+          </span>
+          <span className="text-sm font-semibold text-slate-500">kW</span>
         </div>
+
+        {/* Text description */}
+        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
+          Última lectura tomada desde el medidor de tu instalación. Cargas habituales (refrigerador, luces y climatización moderada).
+        </p>
       </div>
 
-      {/* ── Value ─── */}
-      <div className="flex items-baseline gap-2 mt-auto animate-number" style={{ animationDelay: '100ms' }}>
-        <span
-          className="font-bold tracking-tight leading-none"
-          style={{
-            fontSize: 'clamp(2.5rem, 5vw, 3.5rem)',
-            color: 'var(--foreground)',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {valueKwh.toFixed(2)}
-        </span>
-        <span
-          className="text-base font-medium"
-          style={{ color: 'var(--foreground-muted)' }}
-        >
-          kWh
+      {/* Footer line */}
+      <div className="pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center gap-2 text-xs">
+        <span className="text-slate-500 dark:text-slate-400">Nivel de demanda:</span>
+        <span className={`font-semibold ${statusColor} flex items-center gap-1.5`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
+          {statusText.replace('• ', '')}
         </span>
       </div>
-
-      {/* ── Footer label ─── */}
-      <p
-        className="mt-3 text-xs"
-        style={{ color: 'var(--foreground-muted)', opacity: 0.6 }}
-      >
-        Última lectura del medidor de red
-      </p>
     </div>
   );
 }

@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Telar Monitor 
 
-## Getting Started
+Telar Monitor es un dashboard web interactivo y en tiempo real para visualizar el consumo de energía eléctrica y la generación de paneles solares. Construido con **Next.js 16**, **React 19** y **Tailwind CSS v4**.
 
-First, run the development server:
+## Cómo instalar y ejecutar el proyecto
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+Para correr el proyecto localmente en tu entorno de desarrollo:
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **Instalar las dependencias:**
+   Asegúrate de tener Node.js instalado (v18 o superior).
+   ```bash
+   npm install
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. **Configurar las variables de entorno:**
+   Crea un archivo `.env.local` en la raíz del proyecto basándote en las credenciales de tu base de datos (por ejemplo, Supabase).
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=tu_url_aqui
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_token_aqui
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. **Iniciar el servidor de desarrollo:**
+   ```bash
+   npm run dev
+   ```
+   Abre [http://localhost:3000](http://localhost:3000) en tu navegador para ver la aplicación.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Datos Simulados y Pruebas
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Durante la etapa de desarrollo o para hacer demostraciones (MVP), puedes poblar la base de datos con datos simulados y realistas sin necesidad de conectar hardware físico.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Generar el historial inicial (Seed):**
+  Para generar datos realistas (cada 15 minutos) de los últimos 7 días con variaciones de clima y fines de semana, ejecuta en otra terminal:
+  ```bash
+  curl -X POST http://localhost:3000/api/simulate/seed
+  ```
+  *(Nota: Esto puede tardar unos segundos porque inserta más de 1,500 registros en la base de datos).*
 
-## Deploy on Vercel
+- **Simular lecturas en tiempo real:**
+  Si estás haciendo una presentación y quieres que el dashboard se mueva en vivo, el proyecto cuenta con un script de simulación automática que envía un pulso de energía cada 10 segundos. Ejecútalo así:
+  ```bash
+  # Para un entorno local:
+  node simulate-live.js
+  
+  # Para simular directo a un despliegue en Vercel:
+  node simulate-live.js https://tu-proyecto.vercel.app/api/simulate/reading
+  ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Documentación Técnica
+
+Para un entendimiento profundo del proyecto, dirígete a la carpeta [`.docs/`](./.docs/) donde encontrarás información vital:
+
+- [**Arquitectura y Funcionamiento**](./.docs/arquitectura-y-funcionamiento.md): Conoce las capas del software (Clean Architecture), los casos de uso, las tolerancias a fallos del sistema y cómo fluyen los datos en tiempo real.
+- [**Guía de Integración con Hardware Real**](./.docs/real-hardware-integration.md): Las tres arquitecturas recomendadas y ejemplos de código para migrar del simulador a sensores IoT reales (ESP32, Raspberry Pi, MQTT).
+- [**Setup de Base de Datos**](./.docs/setup-database.sql): Script SQL de referencia para recrear las tablas y los índices necesarios en la base de datos.
