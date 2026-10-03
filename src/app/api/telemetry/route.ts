@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
 import { SaveTelemetry } from '@/application/use-cases/SaveTelemetry';
 import { SupabaseEnergyReadingRepository } from '@/infrastructure/supabase/SupabaseEnergyReadingRepository';
+import { NextResponse } from 'next/server';
 
 // Endpoint para recibir telemetría de hardware real (ESP32/IoT)
 export async function POST(req: Request) {
