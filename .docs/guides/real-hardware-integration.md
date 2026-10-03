@@ -13,25 +13,26 @@ En esta arquitectura, un microcontrolador (ej. **ESP32**) equipado con sensores 
 ```mermaid
 graph LR
     A[Sensor de Corriente/Voltaje] -->|Señal Analógica/I2C| B(Microcontrolador ESP32)
-    B -->|WiFi / HTTP POST| C[API Next.js: /api/telemetry]
-    C -->|Validación y Auth| D[(Base de Datos Supabase)]
-    D --> E[Telar Monitor Frontend]
+    B -->|WiFi / HTTP POST| C[Controlador: /api/telemetry]
+    C -->|SaveTelemetry (Caso de Uso)| D[Supabase Repo (Infraestructura)]
+    D --> E[(Base de Datos Supabase)]
+    E --> F[Telar Monitor Frontend]
 ```
 
 ---
 
-## Implementación Actual en el Código
+## Implementación Actual en el Código (Arquitectura Limpia)
 
-El backend de Telar Monitor ya está **preparado y listo** para recibir las métricas del hardware.
+El backend de Telar Monitor ya está **preparado y listo** para recibir las métricas del hardware, respetando estrictamente los principios de Arquitectura Limpia (Hexagonal).
 
-### 1. El Endpoint de Recepción (`src/app/api/telemetry/route.ts`)
+### 1. El Controlador de Recepción (`src/app/api/telemetry/route.ts`)
 
-Se ha creado una ruta de API en Next.js específica para el hardware. Cuando el ESP32 tiene datos listos, se comunica con esta ruta. Puedes revisar el código fuente directamente en [`src/app/api/telemetry/route.ts`](file:///home/kairos/Proyectos/TelarMonitor/src/app/api/telemetry/route.ts).
+Se ha creado una ruta de API en Next.js que actúa como nuestro controlador. Cuando el ESP32 tiene datos listos, se comunica con esta ruta. Puedes revisar el código fuente en [`src/app/api/telemetry/route.ts`](file:///home/kairos/Proyectos/TelarMonitor/src/app/api/telemetry/route.ts).
 
-Este archivo realiza tres tareas críticas:
-1. **Seguridad (Auth):** Valida que la solicitud HTTP tenga el encabezado `Authorization: Bearer TELAR_HARDWARE_TOKEN_2026`. Esto previene que terceros inserten datos falsos.
-2. **Validación del Payload:** Asegura que el cuerpo (JSON) traiga los campos estrictamente necesarios (`reading_type` y `value_kwh`).
-3. **Persistencia Directa:** Inserta la lectura en tiempo real en la tabla `energy_readings` usando la instancia global del cliente de Supabase.
+El flujo interno funciona así:
+1. **Seguridad (Auth):** El controlador valida que la solicitud HTTP tenga el encabezado `Authorization: Bearer TELAR_HARDWARE_TOKEN_2026`. Esto previene que terceros inserten datos falsos.
+2. **Desacoplamiento (Capa de Aplicación):** En lugar de tocar la base de datos, el controlador parsea el JSON y llama al Caso de Uso `SaveTelemetry` (`src/application/use-cases/SaveTelemetry.ts`).
+3. **Persistencia (Capa de Infraestructura):** El caso de uso realiza las validaciones de negocio estrictas (que no sea un número negativo, que el tipo de lectura exista) y, si todo está bien, guarda el registro usando el patrón Repositorio a través de `SupabaseEnergyReadingRepository`.
 
 ### 2. Formato de Envío (Contrato de Datos JSON)
 
