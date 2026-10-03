@@ -98,7 +98,7 @@ export class SimulationService {
     }
 
     // Bulk insert in chunks to avoid Supabase payload limits
-    const CHUNK = 500;
+    const CHUNK = 2000;
     for (let i = 0; i < readings.length; i += CHUNK) {
       const chunk = readings.slice(i, i + CHUNK);
       const { error } = await supabase.from('energy_readings').insert(chunk);
@@ -108,6 +108,45 @@ export class SimulationService {
       }
     }
 
-    console.log(`Seeded ${readings.length} readings (${days} days × ~96 readings/day)`);
+    console.log(`Seeded ${readings.length} energy readings.`);
+
+    // Seed Synthetic Alerts
+    const alerts = [
+      {
+        title: 'Consumo inusual detectado en horario nocturno',
+        description: 'Se registró un consumo continuo de 1.8 kW entre la 01:00 AM y las 04:00 AM, notablemente superior al promedio nocturno habitual de tu hogar (0.4 kW). Causa probable: Un electrodoméstico de alta demanda quedó encendido.',
+        severity: 'warning',
+        is_read: false,
+        is_resolved: false,
+        created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() // 2 hours ago
+      },
+      {
+        title: 'Pico de generación solar alcanzado',
+        description: 'Ayer a las 13:15 tus paneles alcanzaron 3.8 kW sostenidos, superando la marca previa. El cielo despejado y la temperatura ambiente óptima favorecieron el rendimiento de las celdas.',
+        severity: 'success',
+        is_read: true,
+        is_resolved: true,
+        created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 1 day ago
+      },
+      {
+        title: 'Mantenimiento preventivo de paneles recomendado',
+        description: 'Llevas 4 meses sin registrar limpieza en los paneles solares. En zonas secas, una capa ligera de cal o polvo puede reducir entre un 5% y un 8% la captación energética diaria.',
+        severity: 'info',
+        is_read: false,
+        is_resolved: false,
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() // 2 days ago
+      },
+      {
+        title: 'Conexión restablecida con el medidor',
+        description: 'Breve desconexión de señal Wi-Fi de 4 minutos superada. La memoria interna del hardware Telar volcó las lecturas sin pérdida de registros acumulados.',
+        severity: 'info',
+        is_read: true,
+        is_resolved: true,
+        created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString() // 4 days ago
+      }
+    ];
+
+    await supabase.from('system_alerts').insert(alerts);
+    console.log('Seeded system alerts.');
   }
 }

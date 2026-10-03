@@ -1,4 +1,7 @@
+'use client';
+
 import { WifiOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface StaleDataWarningProps {
   /** ISO timestamp string of the last reading */
@@ -10,21 +13,31 @@ interface StaleDataWarningProps {
 /**
  * StaleDataWarning
  *
- * Server Component. Renders a dismissal banner when the most recent reading
- * is older than `staleAfterMinutes`. This catches cases where the sensor /
- * simulator has stopped sending data, so the user knows the numbers on screen
- * may not reflect the current reality.
+ * Client Component. Renders a dismissal banner when the most recent reading
+ * is older than `staleAfterMinutes`.
  */
 export function StaleDataWarning({
   lastReadingAt,
   staleAfterMinutes = 5,
 }: StaleDataWarningProps) {
-  if (!lastReadingAt) return null;
+  const [ageMinutes, setAgeMinutes] = useState<number | null>(null);
 
-  const lastDate = new Date(lastReadingAt);
-  const ageMinutes = (Date.now() - lastDate.getTime()) / 60_000;
+  useEffect(() => {
+    if (!lastReadingAt) return;
+    const lastDate = new Date(lastReadingAt);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAgeMinutes((Date.now() - lastDate.getTime()) / 60_000);
+    
+    const interval = setInterval(() => {
+      setAgeMinutes((Date.now() - lastDate.getTime()) / 60_000);
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [lastReadingAt]);
 
-  if (ageMinutes <= staleAfterMinutes) return null;
+  if (!lastReadingAt || ageMinutes === null || ageMinutes <= staleAfterMinutes) {
+    return null;
+  }
 
   const ageLabel =
     ageMinutes < 60
