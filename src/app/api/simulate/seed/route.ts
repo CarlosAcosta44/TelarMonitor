@@ -7,8 +7,8 @@ export async function POST() {
     const repository = new SupabaseEnergyReadingRepository();
     const simulationService = new SimulationService(repository);
     
-    // Seed 7 days of historical data
-    await simulationService.seedHistoricalData(7);
+    // Seed 365 days of historical data for the full year views
+    await simulationService.seedHistoricalData(365);
 
     return NextResponse.json({ message: 'Historical data seeded successfully' }, { status: 200 });
   } catch (error) {

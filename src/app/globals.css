@@ -1,61 +1,60 @@
 @import "tailwindcss";
+@custom-variant dark (&:is(.dark *));
 
 /* ─── Light Mode ──────────────────────────────────────────────────── */
 :root {
-  --background: #f0f4f8;
-  --background-secondary: #e8eef5;
-  --foreground: #0d1b2e;
-  --foreground-muted: #4a6080;
+  --background: #F4F3F8;
+  --background-secondary: #f2f3ff;
+  --foreground: #131b2e;
+  --foreground-muted: #554336;
 
-  --card-bg: rgba(255, 255, 255, 0.85);
-  --card-border: rgba(180, 200, 220, 0.7);
-  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
-  --card-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --card-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+  --card-shadow-hover: 0 10px 15px -3px rgba(15, 23, 42, 0.05), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
 
-  --accent-consumption: #e53e3e;
-  --accent-consumption-light: rgba(229, 62, 62, 0.12);
-  --accent-consumption-glow: rgba(229, 62, 62, 0.25);
+  --accent-consumption: #0284C7;
+  --accent-consumption-light: rgba(14, 165, 233, 0.12);
+  --accent-consumption-glow: rgba(14, 165, 233, 0.25);
 
-  --accent-solar: #059669;
-  --accent-solar-light: rgba(5, 150, 105, 0.12);
-  --accent-solar-glow: rgba(5, 150, 105, 0.25);
+  --accent-solar: #D97706;
+  --accent-solar-light: rgba(245, 158, 11, 0.12);
+  --accent-solar-glow: rgba(245, 158, 11, 0.25);
 
-  --accent-balance-pos: #0284c7;
-  --accent-balance-neg: #dc2626;
+  --accent-balance-pos: #10B981;
+  --accent-balance-neg: #0284C7;
 
-  --status-live: #10b981;
+  --status-live: #10B981;
 
-  --header-bg: rgba(240, 244, 248, 0.85);
+  --header-bg: rgba(255, 255, 255, 0.85);
 }
 
 /* ─── Dark Mode ───────────────────────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #060d1a;
-    --background-secondary: #0b1628;
-    --foreground: #e8f0f8;
-    --foreground-muted: #7a99bb;
+.dark {
+  --background: #060d1a;
+  --background-secondary: #0b1628;
+  --foreground: #e8f0f8;
+  --foreground-muted: #7a99bb;
 
-    --card-bg: rgba(11, 22, 40, 0.80);
-    --card-border: rgba(30, 60, 100, 0.60);
-    --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
-    --card-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 30, 80, 0.4);
+  --card-bg: rgba(11, 22, 40, 0.80);
+  --card-border: rgba(30, 60, 100, 0.60);
+  --card-shadow: 0 4px 24px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+  --card-shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.6), 0 4px 16px rgba(0, 30, 80, 0.4);
 
-    --accent-consumption: #f87171;
-    --accent-consumption-light: rgba(248, 113, 113, 0.12);
-    --accent-consumption-glow: rgba(248, 113, 113, 0.20);
+  --accent-consumption: #f87171;
+  --accent-consumption-light: rgba(248, 113, 113, 0.12);
+  --accent-consumption-glow: rgba(248, 113, 113, 0.20);
 
-    --accent-solar: #34d399;
-    --accent-solar-light: rgba(52, 211, 153, 0.12);
-    --accent-solar-glow: rgba(52, 211, 153, 0.20);
+  --accent-solar: #34d399;
+  --accent-solar-light: rgba(52, 211, 153, 0.12);
+  --accent-solar-glow: rgba(52, 211, 153, 0.20);
 
-    --accent-balance-pos: #38bdf8;
-    --accent-balance-neg: #f87171;
+  --accent-balance-pos: #38bdf8;
+  --accent-balance-neg: #f87171;
 
-    --status-live: #34d399;
+  --status-live: #34d399;
 
-    --header-bg: rgba(6, 13, 26, 0.88);
-  }
+  --header-bg: rgba(6, 13, 26, 0.88);
 }
 
 /* ─── Tailwind Theme Bridge ───────────────────────────────────────── */
@@ -80,46 +79,34 @@ body {
   color: var(--foreground);
   font-family: var(--font-outfit), var(--font-sans), Arial, sans-serif;
   min-height: 100vh;
-  background-image:
-    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(5, 150, 105, 0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 80% 110%, rgba(229, 62, 62, 0.05) 0%, transparent 60%);
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    background-image:
-      radial-gradient(ellipse 80% 50% at 20% -10%, rgba(52, 211, 153, 0.07) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 40% at 80% 110%, rgba(248, 113, 113, 0.06) 0%, transparent 60%),
-      radial-gradient(ellipse 100% 60% at 50% 50%, rgba(14, 30, 60, 0.5) 0%, transparent 100%);
-  }
+.dark body {
+  background-color: var(--background);
 }
 
 /* ─── Utilities ───────────────────────────────────────────────────── */
 @layer utilities {
-  /* Glass Card */
+  /* Glass Card (now flat card per design) */
   .glass-card {
     background-color: var(--card-bg);
     border: 1px solid var(--card-border);
-    backdrop-filter: blur(16px) saturate(180%);
-    -webkit-backdrop-filter: blur(16px) saturate(180%);
-    border-radius: 1.25rem;
+    border-radius: 1rem;
     box-shadow: var(--card-shadow);
-    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-                box-shadow 0.25s ease;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s ease;
   }
 
   .glass-card:hover {
-    transform: translateY(-3px);
     box-shadow: var(--card-shadow-hover);
   }
 
   /* Glow variants */
   .glow-consumption:hover {
-    box-shadow: var(--card-shadow-hover), 0 0 30px var(--accent-consumption-glow);
+    box-shadow: var(--card-shadow-hover);
   }
 
   .glow-solar:hover {
-    box-shadow: var(--card-shadow-hover), 0 0 30px var(--accent-solar-glow);
+    box-shadow: var(--card-shadow-hover);
   }
 
   /* Live badge pulse */
@@ -176,4 +163,40 @@ body {
 
 .animate-number {
   animation: numberReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ─── Print Styles ────────────────────────────────────────────────── */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 1cm;
+  }
+  
+  body {
+    background-color: white !important;
+    color: black !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  
+  aside, button, footer {
+    display: none !important;
+  }
+  
+  /* Reset margins normally offset by sidebar */
+  .ml-64 {
+    margin-left: 0 !important;
+  }
+  
+  /* Ensure cards break properly */
+  .glass-card, .bg-white {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+  
+  /* Force chart to render correctly */
+  .recharts-responsive-container {
+    height: 300px !important;
+  }
 }
