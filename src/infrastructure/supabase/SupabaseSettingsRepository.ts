@@ -1,27 +1,37 @@
 import { SettingsRepository } from '../../domain/repositories/SettingsRepository';
-import { supabase } from './client';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { createAnonClient } from './client';
 
 export class SupabaseSettingsRepository implements SettingsRepository {
+  constructor(private supabase: SupabaseClient = createAnonClient()) {}
+
   async getSetting(key: string): Promise<string | null> {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('value')
-      .eq('key', key)
+    const { data, error } = await this.supabase
+      .from('households')
+      .select(key)
+      .limit(1)
       .single();
 
     if (error || !data) return null;
-    return data.value as string;
+    return String((data as unknown as Record<string, unknown>)[key]);
   }
 
   async getAllSettings(): Promise<Record<string, string>> {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('key, value');
+    const { data, error } = await this.supabase
+      .from('households')
+      .select('*')
+      .limit(1)
+      .single();
 
     if (error || !data) return {};
 
-    return Object.fromEntries(
-      (data as { key: string; value: string }[]).map((s) => [s.key, s.value]),
-    );
+    // Map all columns to string values
+    const settings: Record<string, string> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (v !== null && v !== undefined) {
+        settings[k] = String(v);
+      }
+    }
+    return settings;
   }
 }
