@@ -3,11 +3,13 @@ import { DashboardRefresher } from "@/components/DashboardRefresher";
 import { AhorroChart } from "@/components/AhorroChart";
 import { Leaf, Calendar, TrendingUp, Sun, Banknote, Zap, CloudLightning, Info } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/infrastructure/supabase/server";
 
 export const revalidate = 60;
 
 export default async function AhorroPage() {
-  const energyRepo = new SupabaseEnergyReadingRepository();
+  const supabase = await createClient();
+  const energyRepo = new SupabaseEnergyReadingRepository(supabase);
 
   // Fetch exactly the daily summaries for 2026
   const summaries = await energyRepo.getDailySummaries(2026).catch(() => []);

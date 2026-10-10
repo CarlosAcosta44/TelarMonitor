@@ -6,6 +6,7 @@ import { Calendar, Download, Zap, Sun, Leaf, ChevronLeft, ChevronRight } from "l
 import Link from "next/link";
 
 import { ExportButton } from "@/components/ExportButton";
+import { createClient } from "@/infrastructure/supabase/server";
 
 export const revalidate = 60;
 
@@ -18,7 +19,8 @@ export default async function HistoricoPage({
   const rangeParam = params.range || "30d";
   const range: ChartRange = (rangeParam === "24h" || rangeParam === "7d" || rangeParam === "30d") ? rangeParam : "30d";
 
-  const energyRepo = new SupabaseEnergyReadingRepository();
+  const supabase = await createClient();
+  const energyRepo = new SupabaseEnergyReadingRepository(supabase);
   const getHistory = new GetHistoricalReadings(energyRepo);
 
   // We fetch 30 days of data to populate the charts AND the time patterns/recent days

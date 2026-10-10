@@ -1,5 +1,6 @@
 import { SaveTelemetry } from '@/application/use-cases/SaveTelemetry';
 import { SupabaseEnergyReadingRepository } from '@/infrastructure/supabase/SupabaseEnergyReadingRepository';
+import { createAnonClient } from '@/infrastructure/supabase/client';
 import { NextResponse } from 'next/server';
 
 // Endpoint para recibir telemetría de hardware real (ESP32/IoT)
@@ -15,14 +16,15 @@ export async function POST(req: Request) {
     const body = await req.json();
     
     // 3. Ejecutar Caso de Uso (Arquitectura Limpia)
-    const repo = new SupabaseEnergyReadingRepository();
+    const repo = new SupabaseEnergyReadingRepository(createAnonClient());
     const saveTelemetry = new SaveTelemetry(repo);
 
     try {
       await saveTelemetry.execute(body.reading_type, body.value_kwh);
-    } catch (err: any) {
-      if (err.message.includes('inválido')) {
-        return NextResponse.json({ error: err.message }, { status: 400 });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      if (message.includes('inválido')) {
+        return NextResponse.json({ error: message }, { status: 400 });
       }
       throw err;
     }

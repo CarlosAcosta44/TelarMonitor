@@ -1,43 +1,49 @@
 'use server';
 
-import { supabase } from "@/infrastructure/supabase/client";
+import { createClient } from "@/infrastructure/supabase/server";
 import { revalidatePath } from "next/cache";
 
 export async function updateSettings(formData: FormData) {
-  const installation_name = formData.get('installation_name');
-  const location = formData.get('location');
-  const capacity_kwp = formData.get('capacity_kwp');
-  const orientation = formData.get('orientation');
-  const start_date = formData.get('start_date');
-  const utility_company = formData.get('utility_company');
-  const tariff_tier = formData.get('tariff_tier');
-  const export_rate = formData.get('export_rate');
+  const supabase = await createClient();
 
-  // We fetch existing settings to know which ones to update,
-  // or we can just iterate over them.
-  // Supabase doesn't easily do a bulk update on different rows by key if we map them differently,
-  // but since we only have one set of settings, we'll loop.
-  const updates = [
-    { key: 'installation_name', value: installation_name },
-    { key: 'location', value: location },
-    { key: 'capacity_kwp', value: capacity_kwp },
-    { key: 'orientation', value: orientation },
-    { key: 'start_date', value: start_date },
-    { key: 'utility_company', value: utility_company },
-    { key: 'tariff_tier', value: tariff_tier },
-    { key: 'export_rate', value: export_rate },
+  const updates: Record<string, string | number> = {};
+  
+  const fields = [
+    'installation_name',
+    'location',
+    'capacity_kwp',
+    'orientation',
+    'start_date',
+    'utility_company',
+    'tariff_tier',
+    'export_rate',
   ];
 
-  for (const item of updates) {
-    if (item.value !== null && item.value !== undefined) {
-      // Check if setting exists
-      const { data } = await supabase.from('settings').select('id').eq('key', item.key).single();
-      
-      if (data) {
-        await supabase.from('settings').update({ value: item.value.toString() }).eq('key', item.key);
+  fields.forEach((field) => {
+    const value = formData.get(field);
+    if (value !== null && value !== undefined && value !== '') {
+      if (field === 'capacity_kwp' || field === 'export_rate') {
+        updates[field] = parseFloat(value.toString());
       } else {
-        await supabase.from('settings').insert({ key: item.key, value: item.value.toString() });
+        updates[field] = value.toString();
       }
+    }
+  });
+
+  if (Object.keys(updates).length > 0) {
+    // Update the first household found for this user (enforced by RLS)
+    // First, let's get the household id
+    const { data: household } = await supabase
+      .from('households')
+      .select('id')
+      .limit(1)
+      .single();
+
+    if (household) {
+      await supabase
+        .from('households')
+        .update(updates)
+        .eq('id', household.id);
     }
   }
 
@@ -45,3 +51,4 @@ export async function updateSettings(formData: FormData) {
   revalidatePath('/');
   revalidatePath('/ahorro');
 }
+

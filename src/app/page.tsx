@@ -4,6 +4,7 @@ import { GetCurrentConsumption } from "@/application/use-cases/GetCurrentConsump
 import { GetSolarGeneration } from "@/application/use-cases/GetSolarGeneration";
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
 import { GetDailySummary } from "@/application/use-cases/GetDailySummary";
+import { createClient } from "@/infrastructure/supabase/server";
 
 import { ConsumptionCard } from "@/components/ConsumptionCard";
 import { SolarCard } from "@/components/SolarCard";
@@ -50,8 +51,9 @@ export default async function DashboardPage({
 
   if (!isSupabaseConfigured) return <ConfigurationError />;
 
-  const energyRepo   = new SupabaseEnergyReadingRepository();
-  const settingsRepo = new SupabaseSettingsRepository();
+  const supabase = await createClient();
+  const energyRepo   = new SupabaseEnergyReadingRepository(supabase);
+  const settingsRepo = new SupabaseSettingsRepository(supabase);
 
   const getConsumption = new GetCurrentConsumption(energyRepo);
   const getSolar       = new GetSolarGeneration(energyRepo);

@@ -1,11 +1,13 @@
 import { SupabaseSettingsRepository } from "@/infrastructure/supabase/SupabaseSettingsRepository";
 import { updateSettings } from "./actions";
 import { ConfiguracionClient } from "@/components/ConfiguracionClient";
+import { createClient } from "@/infrastructure/supabase/server";
 
 export const revalidate = 0; // Don't cache settings page
 
 export default async function ConfiguracionPage() {
-  const settingsRepo = new SupabaseSettingsRepository();
+  const supabase = await createClient();
+  const settingsRepo = new SupabaseSettingsRepository(supabase);
   
   // Fetch all settings
   const [
