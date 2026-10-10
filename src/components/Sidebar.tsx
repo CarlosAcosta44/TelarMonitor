@@ -33,20 +33,41 @@ export function Sidebar() {
   const [householdName, setHouseholdName] = React.useState<string>('Hogar Las Palmas');
 
   React.useEffect(() => {
+    // 1. Listen for immediate client-side updates (e.g. after saving in Settings)
+    const onUpdate = (e: Event) => {
+      const detail = (e as CustomEvent<{ name?: string }>).detail;
+      if (detail?.name) {
+        setHouseholdName(detail.name);
+      }
+    };
+    window.addEventListener('household-updated', onUpdate);
+    return () => window.removeEventListener('household-updated', onUpdate);
+  }, []);
+
+  React.useEffect(() => {
     const supabase = createClient();
     async function loadUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
         setUserEmail(user.email);
       }
-      // Also fetch household name for this user if available
-      const { data: household } = await supabase.from('households').select('name').limit(1).single();
-      if (household?.name) {
-        setHouseholdName(household.name);
+      
+      // Fetch household name from households table
+      const { data: household } = await supabase.from('households').select('*').limit(1).single();
+      const name = household?.name || household?.installation_name;
+      if (name) {
+        setHouseholdName(name);
+        return;
+      }
+
+      // Fallback to settings table if households table isn't populated
+      const { data: setting } = await supabase.from('settings').select('value').eq('key', 'installation_name').single();
+      if (setting?.value) {
+        setHouseholdName(setting.value);
       }
     }
     loadUser();
-  }, []);
+  }, [pathname]);
 
   const handleLogout = async () => {
     const supabase = createClient();

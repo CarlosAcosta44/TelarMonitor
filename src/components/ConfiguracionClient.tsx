@@ -134,6 +134,13 @@ export function ConfiguracionClient({
       if (updateSettingsAction) {
         await updateSettingsAction(fd);
       }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('household-updated', {
+            detail: { name: formData.installation_name }
+          })
+        );
+      }
       setIsSaved(true);
       setSaveSuccessMsg('¡Parámetros guardados correctamente en la base de datos!');
       setTimeout(() => setSaveSuccessMsg(null), 4000);

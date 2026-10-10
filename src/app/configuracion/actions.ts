@@ -44,6 +44,10 @@ export async function updateSettings(formData: FormData) {
   }
 
   if (Object.keys(updates).length > 0) {
+    if (updates['installation_name']) {
+      updates['name'] = updates['installation_name'];
+    }
+
     const { data: household } = await supabase
       .from('households')
       .select('id')
@@ -55,6 +59,25 @@ export async function updateSettings(formData: FormData) {
         .from('households')
         .update(updates)
         .eq('id', household.id);
+    } else {
+      await supabase
+        .from('households')
+        .insert([{
+          name: updates['installation_name'] || 'Hogar Las Palmas',
+          ...updates
+        }]);
+    }
+
+    // Also update settings table as fallback if present
+    try {
+      if (updates['installation_name']) {
+        await supabase
+          .from('settings')
+          .update({ value: updates['installation_name'].toString() })
+          .eq('key', 'installation_name');
+      }
+    } catch {
+      // Ignored if settings table was migrated
     }
   }
 
