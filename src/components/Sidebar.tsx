@@ -3,8 +3,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
+import { createClient } from '@/infrastructure/supabase/browser';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -12,7 +13,8 @@ import {
   BellRing, 
   Settings,
   Sun,
-  Moon
+  Moon,
+  LogOut
 } from 'lucide-react';
 
 const navItems = [
@@ -25,13 +27,34 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
+  const [userEmail, setUserEmail] = React.useState<string | null>(null);
+  const [householdName, setHouseholdName] = React.useState<string>('Hogar Las Palmas');
 
   React.useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
+    const supabase = createClient();
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setUserEmail(user.email);
+      }
+      // Also fetch household name for this user if available
+      const { data: household } = await supabase.from('households').select('name').limit(1).single();
+      if (household?.name) {
+        setHouseholdName(household.name);
+      }
+    }
+    loadUser();
   }, []);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
+
 
   return (
     <aside className="w-64 h-screen bg-white dark:bg-[#0B1628] border-r border-slate-200/80 dark:border-slate-800 flex flex-col fixed left-0 top-0 transition-colors duration-300">
@@ -116,17 +139,27 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* User Profile */}
-        <div className="flex items-center gap-3 p-2 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
-          <div className="w-8 h-8 rounded-full bg-slate-300 overflow-hidden">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User avatar" />
+        {/* User Profile & Logout */}
+        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User avatar" />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{householdName}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{userEmail || 'usuario@telar.co'}</p>
+            </div>
           </div>
-          <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">Hogar Las Palmas</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Mi Instalación Solar</p>
-          </div>
+          <button
+            onClick={handleLogout}
+            title="Cerrar Sesión"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
+
     </aside>
   );
 }
