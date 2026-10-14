@@ -13,8 +13,9 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts';
+import { useState } from 'react';
 import { Zap, Sun, Clock } from 'lucide-react';
-import Link from 'next/link';
+import { ConsumptionDetailModal } from './ConsumptionDetailModal';
 
 export type ChartRange = '24h' | '7d' | '30d';
 
@@ -107,6 +108,8 @@ function CustomTooltip({ active, payload, label, range }: any) {
 
 /* ── Main Component ─────────────────────────────────────────────── */
 export function HistoryChart({ data, range }: HistoryChartProps) {
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
   if (data.length === 0) {
     return (
       <div
@@ -125,10 +128,6 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
       </div>
     );
   }
-
-  const rangeLabel = range === '7d'
-    ? `Últimos 7 días · ${data.length} días`
-    : `Últimas 24 horas · ${data.length} lecturas`;
 
   return (
     <div className="w-full animate-fade-in-up" style={{ animationDelay: '240ms' }}>
@@ -258,11 +257,21 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
             Durante las horas centrales de hoy, <strong className="text-slate-700 dark:text-slate-300">el 100% de la energía consumida provino del sol</strong> sin costo de la red eléctrica.
           </p>
         </div>
-        <button className="text-xs font-bold text-amber-600 dark:text-amber-500 hover:text-amber-700 transition-colors flex items-center gap-1 shrink-0">
+        <button 
+          onClick={() => setIsDetailModalOpen(true)}
+          className="text-xs font-bold text-amber-600 dark:text-amber-500 hover:text-amber-700 transition-colors flex items-center gap-1 shrink-0 p-1 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/30"
+        >
           Ver detalle de consumo por electrodoméstico
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </div>
+
+      {/* Modal de Detalle de Consumo */}
+      <ConsumptionDetailModal
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        totalKwh={data.reduce((acc, curr) => acc + (curr.consumption || 0), 0) || 11.9}
+      />
     </div>
   );
 }

@@ -1,6 +1,5 @@
 import { SupabaseEnergyReadingRepository } from "@/infrastructure/supabase/SupabaseEnergyReadingRepository";
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
-import { DashboardRefresher } from "@/components/DashboardRefresher";
 import { AlertasClient } from "@/components/AlertasClient";
 import { createClient } from "@/infrastructure/supabase/server";
 
@@ -58,7 +57,6 @@ export default async function AlertasPage() {
 
   return (
     <>
-      <DashboardRefresher intervalMs={60_000} />
       <AlertasClient 
         maxSolarKw={maxSolarKw}
         maxSolarDate={maxSolarDate.toISOString()}

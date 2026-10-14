@@ -1,8 +1,6 @@
 import { SupabaseEnergyReadingRepository } from "@/infrastructure/supabase/SupabaseEnergyReadingRepository";
-import { DashboardRefresher } from "@/components/DashboardRefresher";
 import { AhorroChart } from "@/components/AhorroChart";
-import { Leaf, Calendar, TrendingUp, Sun, Banknote, Zap, CloudLightning, Info } from "lucide-react";
-import Link from "next/link";
+import { Leaf, Calendar, TrendingUp, Sun, Banknote, CloudLightning } from "lucide-react";
 import { createClient } from "@/infrastructure/supabase/server";
 
 export const revalidate = 60;
@@ -16,7 +14,6 @@ export default async function AhorroPage() {
 
   let totalConsumido = 0;
   let totalSolarGenerado = 0;
-  let totalBalanceNeto = 0;
 
   const monthlyData = Array(12).fill(null).map(() => ({
     facturaSinSistema: 0,
@@ -29,7 +26,6 @@ export default async function AhorroPage() {
   summaries.forEach(day => {
     totalConsumido += day.total_consumption;
     totalSolarGenerado += day.total_generation;
-    totalBalanceNeto += day.net_balance;
     
     const month = new Date(day.summary_date).getMonth();
     
@@ -75,8 +71,6 @@ export default async function AhorroPage() {
 
   return (
     <>
-      <DashboardRefresher intervalMs={60_000} />
-      
       <div className="flex flex-col gap-6 max-w-[1200px] mx-auto animate-fade-in">
         
         {/* Header */}
