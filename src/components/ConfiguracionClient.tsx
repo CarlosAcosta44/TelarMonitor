@@ -43,6 +43,7 @@ interface HouseholdData {
   import_rate: string;
   export_rate: string;
   currency: string;
+  invite_code?: string;
 }
 
 interface UserData {
@@ -67,6 +68,7 @@ interface ConfiguracionClientProps {
   updateSettingsAction: (formData: FormData) => Promise<{ success: boolean }>;
   updatePasswordAction?: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
   inviteMemberAction?: (formData: FormData) => Promise<{ success: boolean; message?: string; error?: string }>;
+  joinHouseholdAction?: (formData: FormData) => Promise<{ success: boolean; message?: string; error?: string }>;
 }
 
 export function ConfiguracionClient({ 
@@ -76,7 +78,8 @@ export function ConfiguracionClient({
   lastTelemetryTimestamp, 
   updateSettingsAction,
   updatePasswordAction,
-  inviteMemberAction
+  inviteMemberAction,
+  joinHouseholdAction
 }: ConfiguracionClientProps) {
   const [activeTab, setActiveTab] = useState<'datos' | 'tarifa' | 'usuarios' | 'dispositivos'>('datos');
   const [isSaved, setIsSaved] = useState(true);
@@ -103,6 +106,12 @@ export function ConfiguracionClient({
   const [isSimulatingPulse, setIsSimulatingPulse] = useState(false);
   const [pulseFeedback, setPulseFeedback] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
+  const [copiedInviteCode, setCopiedInviteCode] = useState(false);
+
+  // Join Household State
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [joinLoading, setJoinLoading] = useState(false);
+  const [joinMsg, setJoinMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Password Modal State
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -128,6 +137,7 @@ export function ConfiguracionClient({
     setSaveSuccessMsg(null);
 
     const fd = new FormData();
+    fd.append('household_id', household.id);
     Object.entries(formData).forEach(([key, value]) => fd.append(key, value));
     
     try {
@@ -148,6 +158,33 @@ export function ConfiguracionClient({
       console.error('Error saving settings:', err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCopyInviteCode = () => {
+    const code = household.invite_code || '8B741183';
+    navigator.clipboard.writeText(code);
+    setCopiedInviteCode(true);
+    setTimeout(() => setCopiedInviteCode(false), 2500);
+  };
+
+  const handleJoinHouseholdSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!joinHouseholdAction || !joinCodeInput.trim()) return;
+    setJoinLoading(true);
+    setJoinMsg(null);
+
+    const fd = new FormData();
+    fd.append('invite_code', joinCodeInput.trim().toUpperCase());
+
+    const res = await joinHouseholdAction(fd);
+    setJoinLoading(false);
+    if (res.success) {
+      setJoinMsg({ type: 'success', text: res.message || '¡Te has unido exitosamente al hogar!' });
+      setJoinCodeInput('');
+      setTimeout(() => setJoinMsg(null), 4000);
+    } else {
+      setJoinMsg({ type: 'error', text: res.error || 'Código de invitación no válido o expirado' });
     }
   };
 
@@ -386,7 +423,7 @@ export function ConfiguracionClient({
                   </div>
                 </div>
 
-                <div className="md:col-span-2">
+                <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Fecha de Puesta en Marcha</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -394,9 +431,24 @@ export function ConfiguracionClient({
                     </div>
                     <input 
                       name="start_date" 
-                      value={formData.start_date} 
+                      type="date"
+                      value={formData.start_date && formData.start_date.length === 10 ? formData.start_date : '2025-03-01'} 
                       onChange={handleChange} 
                       className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50" 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tecnología de Paneles</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Sun className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <input 
+                      readOnly
+                      value={`${panelCount} Módulos Monocristalino PERC (525W c/u)`} 
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-default" 
                     />
                   </div>
                 </div>
@@ -409,7 +461,7 @@ export function ConfiguracionClient({
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white">Inversor Monofásico Híbrido 5.0 kW</h4>
-                    <p className="text-xs text-slate-500">Eficiencia de conversión promedio: 97.8%</p>
+                    <p className="text-xs text-slate-500">Eficiencia de conversión promedio: 97.8% • Células Bifaciales</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 rounded-full">
@@ -443,12 +495,22 @@ export function ConfiguracionClient({
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Building2 className="w-4 h-4 text-blue-500" />
                     </div>
-                    <input 
+                    <select 
                       name="utility_company" 
                       value={formData.utility_company} 
                       onChange={handleChange} 
-                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
-                    />
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none"
+                    >
+                      <option value="EPM (Empresas Públicas de Medellín)">EPM (Empresas Públicas de Medellín)</option>
+                      <option value="Enel Colombia (Bogotá / Cundinamarca)">Enel Colombia (Bogotá / Cundinamarca)</option>
+                      <option value="Celsia Energía (Valle / Tolima)">Celsia Energía (Valle / Tolima)</option>
+                      <option value="Air-e (Atlántico / Magdalena)">Air-e (Atlántico / Magdalena)</option>
+                      <option value="Afinia (Grupo EPM - Caribe)">Afinia (Grupo EPM - Caribe)</option>
+                      <option value="ESSA (Electrificadora Santander)">ESSA (Electrificadora Santander)</option>
+                      <option value="CHEC (Central Hidroeléctrica Caldas)">CHEC (Central Hidroeléctrica Caldas)</option>
+                      <option value="EMSA (Electrificadora del Meta)">EMSA (Electrificadora del Meta)</option>
+                      <option value="Otra Distribuidora">Otra Distribuidora</option>
+                    </select>
                   </div>
                 </div>
 
@@ -548,94 +610,189 @@ export function ConfiguracionClient({
                     </div>
                   </div>
                   <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-xs font-bold">
-                    {members.length > 0 ? `${members.length + 1} Usuarios` : '1 Usuario Activo'}
+                    {(() => {
+                      const otherMembers = members.filter(m => m.user_id !== user.id);
+                      return otherMembers.length === 0 ? '1 Usuario Activo' : `${otherMembers.length + 1} Usuarios`;
+                    })()}
                   </span>
                 </div>
 
                 {/* Member List */}
                 <div className="space-y-3 mb-6">
-                  {/* Current Authenticated User (Owner) */}
-                  <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                        {user.name.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="overflow-hidden">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{user.name}</h4>
-                          <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">Tú</span>
+                  {/* Current Authenticated User */}
+                  {(() => {
+                    const myMembership = members.find(m => m.user_id === user.id);
+                    const myRole = myMembership?.role || 'owner';
+                    const roleLabel = myRole === 'owner' ? 'Propietario (Owner)' : myRole === 'admin' ? 'Administrador' : 'Observador (Viewer)';
+                    return (
+                      <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                            {user.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="overflow-hidden">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{user.name}</h4>
+                              <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded-full font-bold">Tú</span>
+                            </div>
+                            <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                          </div>
                         </div>
-                        <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                        <div className="flex items-center gap-3">
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
+                            {roleLabel}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300">
-                        Propietario (Owner)
-                      </span>
-                    </div>
-                  </div>
+                    );
+                  })()}
 
                   {/* Other members */}
-                  {members.map(member => (
-                    <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-10 h-10 rounded-full bg-slate-400 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                          MB
+                  {(() => {
+                    const otherMembers = members.filter(m => m.user_id !== user.id);
+                    if (otherMembers.length === 0) {
+                      return (
+                        <div className="p-4 rounded-2xl bg-slate-50/60 dark:bg-slate-800/20 border border-dashed border-slate-200 dark:border-slate-800 text-center">
+                          <p className="text-xs text-slate-400">
+                            No hay otros miembros en este hogar todavía. Comparte el código de invitación para vincular a tu familia o equipo técnico.
+                          </p>
                         </div>
-                        <div className="overflow-hidden">
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">Miembro ({member.role})</h4>
-                          <p className="text-xs text-slate-500 truncate">ID: {member.user_id.slice(0, 12)}...</p>
+                      );
+                    }
+                    return otherMembers.map(member => (
+                      <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="w-10 h-10 rounded-full bg-slate-400 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                            MB
+                          </div>
+                          <div className="overflow-hidden">
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">Miembro ({member.role})</h4>
+                            <p className="text-xs text-slate-500 truncate">ID: {member.user_id.slice(0, 12)}...</p>
+                          </div>
                         </div>
+                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 capitalize">
+                          {member.role}
+                        </span>
                       </div>
-                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 capitalize">
-                        {member.role}
-                      </span>
-                    </div>
-                  ))}
+                    ));
+                  })()}
                 </div>
 
-                {/* Invite Form */}
-                <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                {/* Household Invite Code Card */}
+                <div className="bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200/80 dark:border-purple-800/40 rounded-2xl p-5 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Lock className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">Código de Invitación de Este Hogar</h4>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Comparte este código para que otros usuarios se unan a este hogar desde sus cuentas sin crear una instalación vacía.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      <span className="font-mono text-base font-black tracking-widest text-purple-700 dark:text-purple-300 bg-white dark:bg-slate-900 border border-purple-200 dark:border-purple-700/60 px-3 py-1.5 rounded-xl shadow-sm">
+                        {household.invite_code || '8B741183'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCopyInviteCode}
+                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                      >
+                        {copiedInviteCode ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copiedInviteCode ? 'Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 
+                  Opción de Invitar por Correo:
+                  Ocultada visualmente mientras se integra un proveedor SMTP transaccional (Resend / SendGrid).
+                  El código y handlers se conservan intactos para reactivarlo cuando sea necesario.
+                */}
+                {false && (
+                  <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-purple-500" /> Invitar a un Nuevo Miembro por Correo
+                    </h4>
+                    <p className="text-xs text-slate-500 mb-4">
+                      Ingresa el correo electrónico para otorgar acceso a este hogar en Telar Monitor.
+                    </p>
+
+                    {inviteMsg && (
+                      <div className={`p-3 rounded-xl mb-4 text-xs font-semibold flex items-center gap-2 ${
+                        inviteMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}>
+                        {inviteMsg.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                        {inviteMsg.text}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleInviteSubmit} className="flex flex-col sm:flex-row gap-3">
+                      <input 
+                        type="email"
+                        value={inviteEmail}
+                        onChange={e => setInviteEmail(e.target.value)}
+                        placeholder="correo@familiar.com"
+                        required
+                        className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                      />
+                      <select
+                        value={inviteRole}
+                        onChange={e => setInviteRole(e.target.value)}
+                        className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                      >
+                        <option value="viewer">Observador (Solo lectura)</option>
+                        <option value="admin">Administrador (Puede editar)</option>
+                      </select>
+                      <button 
+                        type="submit"
+                        disabled={inviteLoading}
+                        className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
+                      >
+                        {inviteLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
+                        Enviar
+                      </button>
+                    </form>
+                  </div>
+                )}
+
+                {/* Join Another Household Form */}
+                <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-6">
                   <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
-                    <UserPlus className="w-4 h-4 text-purple-500" /> Invitar a un Nuevo Miembro
+                    <Building2 className="w-4 h-4 text-blue-500" /> Unirse a otro Hogar con Código
                   </h4>
                   <p className="text-xs text-slate-500 mb-4">
-                    Ingresa el correo electrónico para otorgar acceso a este hogar en Telar Monitor.
+                    ¿Tienes el código de invitación de otra instalación o vivienda familiar? Ingrésalo aquí para vincular tu cuenta inmediatamente.
                   </p>
 
-                  {inviteMsg && (
+                  {joinMsg && (
                     <div className={`p-3 rounded-xl mb-4 text-xs font-semibold flex items-center gap-2 ${
-                      inviteMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
+                      joinMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
                     }`}>
-                      {inviteMsg.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                      {inviteMsg.text}
+                      {joinMsg.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                      {joinMsg.text}
                     </div>
                   )}
 
-                  <form onSubmit={handleInviteSubmit} className="flex flex-col sm:flex-row gap-3">
+                  <form onSubmit={handleJoinHouseholdSubmit} className="flex flex-col sm:flex-row gap-3">
                     <input 
-                      type="email"
-                      value={inviteEmail}
-                      onChange={e => setInviteEmail(e.target.value)}
-                      placeholder="correo@familiar.com"
+                      type="text"
+                      value={joinCodeInput}
+                      onChange={e => setJoinCodeInput(e.target.value.toUpperCase())}
+                      placeholder="Ej. 8B741183"
+                      maxLength={12}
                       required
-                      className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                      className="w-full sm:w-56 font-mono uppercase tracking-widest px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                     />
-                    <select
-                      value={inviteRole}
-                      onChange={e => setInviteRole(e.target.value)}
-                      className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                    >
-                      <option value="viewer">Observador (Solo lectura)</option>
-                      <option value="admin">Administrador (Puede editar)</option>
-                    </select>
                     <button 
                       type="submit"
-                      disabled={inviteLoading}
-                      className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
+                      disabled={joinLoading}
+                      className="px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
                     >
-                      {inviteLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
-                      Enviar
+                      {joinLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                      Vincular a Hogar
                     </button>
                   </form>
                 </div>
@@ -876,11 +1033,23 @@ export function ConfiguracionClient({
               </span>
             </div>
 
-            <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-4">
+            <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-4 mb-2">
               <span className="text-xs text-slate-500">ID Hogar Telar</span>
               <span className="text-xs font-mono font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
                 {household.id.slice(0, 15)}...
               </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-slate-500">Código de Invitación</span>
+              <button
+                type="button"
+                onClick={handleCopyInviteCode}
+                className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 px-2 py-1 rounded-lg hover:bg-purple-100 transition-colors flex items-center gap-1"
+                title="Copiar código de invitación"
+              >
+                {household.invite_code || '8B741183'}
+                {copiedInviteCode ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
+              </button>
             </div>
           </div>
 

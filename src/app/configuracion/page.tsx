@@ -1,6 +1,6 @@
 import { ConfiguracionClient } from "@/components/ConfiguracionClient";
 import { createClient } from "@/infrastructure/supabase/server";
-import { updateSettings, updatePassword, inviteHouseholdMember } from "./actions";
+import { updateSettings, updatePassword, inviteHouseholdMember, joinHousehold } from "./actions";
 
 export const revalidate = 0; // Don't cache settings page
 
@@ -10,12 +10,34 @@ export default async function ConfiguracionPage() {
   // 1. Get authenticated user
   const { data: { user } } = await supabase.auth.getUser();
 
-  // 2. Fetch household data from households table
-  const { data: household } = await supabase
-    .from('households')
-    .select('*')
-    .limit(1)
-    .single();
+  // 2. Fetch household data: first try through household_members if logged in
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let household: any = null;
+  if (user) {
+    const { data: memberRows } = await supabase
+      .from('household_members')
+      .select('household_id, role, households (*)')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (memberRows && memberRows.length > 0 && memberRows[0].households) {
+      household = memberRows[0].households;
+    }
+  }
+
+  // Fallback if not found through members (e.g. initial setup)
+  if (!household) {
+    const { data: households, error: hError } = await supabase
+      .from('households')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (hError) {
+      console.error('Error fetching household in configuracion/page.tsx:', hError);
+    }
+    household = households && households.length > 0 ? households[0] : null;
+  }
 
   // 3. Fetch household members
   const { data: members } = await supabase
@@ -33,16 +55,23 @@ export default async function ConfiguracionPage() {
 
   const safeHousehold = {
     id: household?.id || 'TLR-ENV-2026-01',
-    installation_name: household?.name || household?.installation_name || 'Hogar Las Palmas',
+    installation_name: household?.installation_name || household?.name || 'Hogar Las Palmas',
     location: household?.location || 'Envigado, Antioquia • Colombia',
-    capacity_kwp: household?.capacity_kwp?.toString() || '4.2',
+    capacity_kwp: household?.capacity_kwp !== undefined && household?.capacity_kwp !== null 
+      ? String(household.capacity_kwp) 
+      : '4.2',
     orientation: household?.orientation || 'Sur-Oeste (Inclinación 15°)',
-    start_date: household?.start_date || 'Marzo 2025',
+    start_date: household?.start_date || '2025-03-01',
     utility_company: household?.utility_company || 'EPM (Empresas Públicas de Medellín)',
     tariff_tier: household?.tariff_tier || 'Residencial (Estrato 5)',
-    import_rate: household?.energy_rate_cop_per_kwh?.toString() || '950',
-    export_rate: household?.export_rate?.toString() || '650',
+    import_rate: household?.energy_rate_cop_per_kwh !== undefined && household?.energy_rate_cop_per_kwh !== null 
+      ? String(household.energy_rate_cop_per_kwh) 
+      : (household?.import_rate !== undefined && household?.import_rate !== null ? String(household.import_rate) : '950'),
+    export_rate: household?.export_rate !== undefined && household?.export_rate !== null 
+      ? String(household.export_rate) 
+      : '650',
     currency: household?.currency || 'COP',
+    invite_code: household?.invite_code || 'ACOSTA26',
   };
 
   const safeUser = {
@@ -61,6 +90,7 @@ export default async function ConfiguracionPage() {
       updateSettingsAction={updateSettings}
       updatePasswordAction={updatePassword}
       inviteMemberAction={inviteHouseholdMember}
+      joinHouseholdAction={joinHousehold}
     />
   );
 }

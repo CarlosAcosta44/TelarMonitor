@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 
 export async function updateSettings(formData: FormData) {
   const supabase = await createClient();
+  const householdId = formData.get('household_id')?.toString();
 
   const updates: Record<string, string | number> = {};
   
@@ -48,24 +49,25 @@ export async function updateSettings(formData: FormData) {
       updates['name'] = updates['installation_name'];
     }
 
-    const { data: household } = await supabase
-      .from('households')
-      .select('id')
-      .limit(1)
-      .single();
-
-    if (household) {
+    if (householdId) {
       await supabase
         .from('households')
         .update(updates)
-        .eq('id', household.id);
+        .eq('id', householdId);
     } else {
-      await supabase
+      const { data: households } = await supabase
         .from('households')
-        .insert([{
-          name: updates['installation_name'] || 'Hogar Las Palmas',
-          ...updates
-        }]);
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const targetId = households && households.length > 0 ? households[0].id : null;
+      if (targetId) {
+        await supabase
+          .from('households')
+          .update(updates)
+          .eq('id', targetId);
+      }
     }
 
     // Also update settings table as fallback if present
@@ -86,6 +88,29 @@ export async function updateSettings(formData: FormData) {
   revalidatePath('/ahorro');
   revalidatePath('/historico');
   return { success: true };
+}
+
+export async function joinHousehold(formData: FormData) {
+  const supabase = await createClient();
+  const inviteCode = formData.get('invite_code')?.toString().trim().toUpperCase();
+
+  if (!inviteCode) {
+    return { success: false, error: 'Ingresa un código de invitación válido' };
+  }
+
+  const { error } = await supabase.rpc('join_household_by_code', {
+    p_invite_code: inviteCode
+  });
+
+  if (error) {
+    return { success: false, error: error.message };
+  }
+
+  revalidatePath('/configuracion');
+  revalidatePath('/');
+  revalidatePath('/ahorro');
+  revalidatePath('/historico');
+  return { success: true, message: '¡Te has unido exitosamente al hogar!' };
 }
 
 export async function updatePassword(formData: FormData) {
@@ -116,19 +141,86 @@ export async function inviteHouseholdMember(formData: FormData) {
     return { success: false, error: 'El correo electrónico es requerido' };
   }
 
-  const { data: household } = await supabase
-    .from('households')
-    .select('id')
-    .limit(1)
-    .single();
+  // Get current user and active household
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: memberRows } = await supabase
+      .from('household_members')
+      .select('household_id')
+      .eq('user_id', user.id)
+      .limit(1);
 
-  if (!household) {
-    return { success: false, error: 'No se encontró un hogar activo' };
+    const householdId = memberRows?.[0]?.household_id;
+    if (householdId) {
+      const { error } = await supabase
+        .from('household_invitations')
+        .insert({
+          household_id: householdId,
+          email: email.toLowerCase(),
+          role: role,
+          invited_by: user.id
+        });
+
+      if (error && !error.message.includes('duplicate')) {
+        console.error('Error guardando invitación:', error);
+      }
+    }
   }
 
-  // Check if member already invited or link member
-  // Note: For invited users, in a real app an invite email is sent.
-  // Here we record the membership or return success.
   revalidatePath('/configuracion');
-  return { success: true, message: `Invitación enviada a ${email} con rol ${role}` };
+  return { 
+    success: true, 
+    message: `Invitación registrada para ${email} (${role}). En esta fase de prototipo, comparte el código del hogar para vincularlo al instante.` 
+  };
+}
+
+export async function createHouseholdAction(formData: FormData) {
+  const supabase = await createClient();
+  const name = formData.get('name')?.toString().trim();
+  const location = formData.get('location')?.toString().trim() || 'Colombia';
+  const capacityKwp = parseFloat(formData.get('capacity_kwp')?.toString() || '4.2');
+
+  if (!name) {
+    return { success: false, error: 'El nombre del hogar es obligatorio' };
+  }
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'Debes iniciar sesión para crear un hogar' };
+  }
+
+  // 1. Insert new household
+  const { data: household, error: hError } = await supabase
+    .from('households')
+    .insert({
+      name: name,
+      installation_name: name,
+      location: location,
+      capacity_kwp: isNaN(capacityKwp) ? 4.2 : capacityKwp
+    })
+    .select('id')
+    .single();
+
+  if (hError || !household) {
+    return { success: false, error: hError?.message || 'Error al crear el hogar' };
+  }
+
+  // 2. Link user as owner in household_members
+  const { error: mError } = await supabase
+    .from('household_members')
+    .insert({
+      household_id: household.id,
+      user_id: user.id,
+      role: 'owner'
+    });
+
+  if (mError) {
+    return { success: false, error: mError.message };
+  }
+
+  revalidatePath('/');
+  revalidatePath('/configuracion');
+  revalidatePath('/historico');
+  revalidatePath('/ahorro');
+  return { success: true, message: '¡Hogar creado exitosamente!' };
 }
