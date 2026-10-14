@@ -25,7 +25,6 @@ import {
   Copy,
   Check,
   Radio,
-  Send,
   ShieldCheck,
   X,
   AlertCircle
@@ -78,7 +77,6 @@ export function ConfiguracionClient({
   lastTelemetryTimestamp, 
   updateSettingsAction,
   updatePasswordAction,
-  inviteMemberAction,
   joinHouseholdAction
 }: ConfiguracionClientProps) {
   const [activeTab, setActiveTab] = useState<'datos' | 'tarifa' | 'usuarios' | 'dispositivos'>('datos');
@@ -119,11 +117,11 @@ export function ConfiguracionClient({
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Invite Member State
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('viewer');
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteMsg, setInviteMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Invite Member State (Preservado para cuando se integre proveedor SMTP)
+  // const [inviteEmail, setInviteEmail] = useState('');
+  // const [inviteRole, setInviteRole] = useState('viewer');
+  // const [inviteLoading, setInviteLoading] = useState(false);
+  // const [inviteMsg, setInviteMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -235,6 +233,7 @@ export function ConfiguracionClient({
     }
   };
 
+  /*
   const handleInviteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteMemberAction) return;
@@ -255,6 +254,7 @@ export function ConfiguracionClient({
       setInviteMsg({ type: 'error', text: res.error || 'Error al enviar invitación' });
     }
   };
+  */
 
   // Projected Monthly Savings Calculation
   const numericCapacity = parseFloat(formData.capacity_kwp) || 4.2;
@@ -711,7 +711,11 @@ export function ConfiguracionClient({
                   Ocultada visualmente mientras se integra un proveedor SMTP transaccional (Resend / SendGrid).
                   El código y handlers se conservan intactos para reactivarlo cuando sea necesario.
                 */}
-                {false && (
+                {/* 
+                  Opción de Invitar por Correo:
+                  Ocultada visualmente mientras se integra un proveedor SMTP transaccional (Resend / SendGrid).
+                  El código se conserva intacto aquí para reactivarlo cuando sea necesario:
+                  
                   <div className="border-t border-slate-100 dark:border-slate-800 pt-6">
                     <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
                       <UserPlus className="w-4 h-4 text-purple-500" /> Invitar a un Nuevo Miembro por Correo
@@ -719,44 +723,9 @@ export function ConfiguracionClient({
                     <p className="text-xs text-slate-500 mb-4">
                       Ingresa el correo electrónico para otorgar acceso a este hogar en Telar Monitor.
                     </p>
-
-                    {inviteMsg && (
-                      <div className={`p-3 rounded-xl mb-4 text-xs font-semibold flex items-center gap-2 ${
-                        inviteMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
-                      }`}>
-                        {inviteMsg.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                        {inviteMsg.text}
-                      </div>
-                    )}
-
-                    <form onSubmit={handleInviteSubmit} className="flex flex-col sm:flex-row gap-3">
-                      <input 
-                        type="email"
-                        value={inviteEmail}
-                        onChange={e => setInviteEmail(e.target.value)}
-                        placeholder="correo@familiar.com"
-                        required
-                        className="flex-1 px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                      />
-                      <select
-                        value={inviteRole}
-                        onChange={e => setInviteRole(e.target.value)}
-                        className="px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500/50"
-                      >
-                        <option value="viewer">Observador (Solo lectura)</option>
-                        <option value="admin">Administrador (Puede editar)</option>
-                      </select>
-                      <button 
-                        type="submit"
-                        disabled={inviteLoading}
-                        className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-sm transition-colors"
-                      >
-                        {inviteLoading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="w-4 h-4" />}
-                        Enviar
-                      </button>
-                    </form>
+                    ...
                   </div>
-                )}
+                */}
 
                 {/* Join Another Household Form */}
                 <div className="border-t border-slate-100 dark:border-slate-800 pt-6 mt-6">
