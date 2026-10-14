@@ -42,9 +42,14 @@ export class SimulationService {
     const consumptionKwh = randomBetween(min, max);
     const solarKwh = solarForHour(hour, 1.0);
 
+    const { data: household } = await supabase.from('households').select('id').order('created_at', { ascending: false }).limit(1).single();
+    const householdId = household?.id;
+
     await Promise.all([
-      this.repository.insertReading({ reading_type: 'consumption',      value_kwh: consumptionKwh }),
-      this.repository.insertReading({ reading_type: 'solar_generation', value_kwh: solarKwh }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.repository.insertReading({ reading_type: 'consumption', value_kwh: consumptionKwh, ...(householdId ? { household_id: householdId } : {}) } as any),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.repository.insertReading({ reading_type: 'solar_generation', value_kwh: solarKwh, ...(householdId ? { household_id: householdId } : {}) } as any),
     ]);
   }
 
