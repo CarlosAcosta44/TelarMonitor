@@ -1,10 +1,13 @@
 import { EnergyReadingRepository } from '../../domain/repositories/EnergyReadingRepository';
 import { EnergyReading, ReadingType } from '../../domain/entities/EnergyReading';
-import { supabase } from './client';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { createAnonClient } from './client';
 
 export class SupabaseEnergyReadingRepository implements EnergyReadingRepository {
+  constructor(private supabase: SupabaseClient = createAnonClient()) {}
+
   async getCurrentReading(type: ReadingType): Promise<EnergyReading | null> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('energy_readings')
       .select('*')
       .eq('reading_type', type)
@@ -21,7 +24,7 @@ export class SupabaseEnergyReadingRepository implements EnergyReadingRepository 
   }
 
   async getHistoricalReadings(type: ReadingType, limit: number = 50): Promise<EnergyReading[]> {
-    let allData: EnergyReading[] = [];
+    const allData: EnergyReading[] = [];
     const chunkSize = 1000;
     
     // We will collect unique timestamps because the seed might have inserted duplicates
@@ -30,7 +33,7 @@ export class SupabaseEnergyReadingRepository implements EnergyReadingRepository 
     // Fetch in chunks to bypass PostgREST max-rows limit (defaults to 1000)
     // We keep fetching until we have `limit` UNIQUE rows
     for (let offset = 0; allData.length < limit; offset += chunkSize) {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('energy_readings')
         .select('*')
         .eq('reading_type', type)
@@ -66,7 +69,7 @@ export class SupabaseEnergyReadingRepository implements EnergyReadingRepository 
     from: Date,
     to: Date,
   ): Promise<EnergyReading[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('energy_readings')
       .select('*')
       .eq('reading_type', type)
@@ -89,7 +92,7 @@ export class SupabaseEnergyReadingRepository implements EnergyReadingRepository 
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('energy_readings')
       .select('value_kwh')
       .eq('reading_type', type)
@@ -107,7 +110,7 @@ export class SupabaseEnergyReadingRepository implements EnergyReadingRepository 
   async insertReading(
     reading: Omit<EnergyReading, 'id' | 'recorded_at'>,
   ): Promise<EnergyReading> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('energy_readings')
       .insert([reading])
       .select()
@@ -122,7 +125,7 @@ export class SupabaseEnergyReadingRepository implements EnergyReadingRepository 
   }
 
   async getDailySummaries(year: number): Promise<{ summary_date: string, total_consumption: number, total_generation: number, net_balance: number }[]> {
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from('daily_energy_summary')
       .select('*')
       .gte('summary_date', `${year}-01-01T00:00:00Z`)

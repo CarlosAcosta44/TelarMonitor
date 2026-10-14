@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fetch = require('node-fetch'); // Make sure you have node-fetch installed
 
 const targetUrl = process.argv[2] || 'http://localhost:3000/api/simulate/reading';

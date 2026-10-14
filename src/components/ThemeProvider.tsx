@@ -18,6 +18,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // Read from localStorage on mount
     const stored = localStorage.getItem('telar-theme') as Theme;
     if (stored === 'light' || stored === 'dark') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setThemeState(stored);
       if (stored === 'dark') {
         document.documentElement.classList.add('dark');

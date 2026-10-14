@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState } from 'react';
@@ -9,7 +10,6 @@ import {
   Activity, 
   Zap, 
   LifeBuoy, 
-  Smartphone, 
   Mail, 
   BellRing,
   X,

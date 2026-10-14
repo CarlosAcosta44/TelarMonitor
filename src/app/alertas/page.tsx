@@ -1,12 +1,13 @@
 import { SupabaseEnergyReadingRepository } from "@/infrastructure/supabase/SupabaseEnergyReadingRepository";
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
-import { DashboardRefresher } from "@/components/DashboardRefresher";
 import { AlertasClient } from "@/components/AlertasClient";
+import { createClient } from "@/infrastructure/supabase/server";
 
 export const revalidate = 60;
 
 export default async function AlertasPage() {
-  const energyRepo = new SupabaseEnergyReadingRepository();
+  const supabase = await createClient();
+  const energyRepo = new SupabaseEnergyReadingRepository(supabase);
   const getHistory = new GetHistoricalReadings(energyRepo);
 
   // Fetch 30 days of data to find the highest solar peak and a night anomaly
@@ -56,7 +57,6 @@ export default async function AlertasPage() {
 
   return (
     <>
-      <DashboardRefresher intervalMs={60_000} />
       <AlertasClient 
         maxSolarKw={maxSolarKw}
         maxSolarDate={maxSolarDate.toISOString()}

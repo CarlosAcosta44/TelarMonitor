@@ -42,9 +42,14 @@ export class SimulationService {
     const consumptionKwh = randomBetween(min, max);
     const solarKwh = solarForHour(hour, 1.0);
 
+    const { data: household } = await supabase.from('households').select('id').order('created_at', { ascending: false }).limit(1).single();
+    const householdId = household?.id;
+
     await Promise.all([
-      this.repository.insertReading({ reading_type: 'consumption',      value_kwh: consumptionKwh }),
-      this.repository.insertReading({ reading_type: 'solar_generation', value_kwh: solarKwh }),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.repository.insertReading({ reading_type: 'consumption', value_kwh: consumptionKwh, ...(householdId ? { household_id: householdId } : {}) } as any),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      this.repository.insertReading({ reading_type: 'solar_generation', value_kwh: solarKwh, ...(householdId ? { household_id: householdId } : {}) } as any),
     ]);
   }
 
@@ -53,11 +58,18 @@ export class SimulationService {
    * Generates one reading every 15 minutes over the last `days` days.
    * Random cloud factors per day make the solar curve believably variable.
    */
-  async seedHistoricalData(days: number = 7) {
+  async seedHistoricalData(days: number = 7, targetHouseholdId?: string) {
+    let householdId = targetHouseholdId;
+    if (!householdId) {
+      const { data: household } = await supabase.from('households').select('id').limit(1).single();
+      householdId = household?.id;
+    }
+
     const readings: {
       reading_type: string;
       value_kwh: number;
       recorded_at: string;
+      household_id?: string;
     }[] = [];
 
     const now = new Date();
@@ -90,8 +102,8 @@ export class SimulationService {
           const solar = solarForHour(h, cloudFactor);
 
           readings.push(
-            { reading_type: 'consumption',      value_kwh: consumption, recorded_at: ts.toISOString() },
-            { reading_type: 'solar_generation', value_kwh: solar,       recorded_at: ts.toISOString() },
+            { reading_type: 'consumption',      value_kwh: consumption, recorded_at: ts.toISOString(), ...(householdId ? { household_id: householdId } : {}) },
+            { reading_type: 'solar_generation', value_kwh: solar,       recorded_at: ts.toISOString(), ...(householdId ? { household_id: householdId } : {}) },
           );
         }
       }
@@ -146,7 +158,13 @@ export class SimulationService {
       }
     ];
 
-    await supabase.from('system_alerts').insert(alerts);
+    const alertsToInsert = alerts.map(a => ({
+      ...a,
+      ...(householdId ? { household_id: householdId } : {})
+    }));
+
+    await supabase.from('system_alerts').insert(alertsToInsert);
     console.log('Seeded system alerts.');
   }
 }
+

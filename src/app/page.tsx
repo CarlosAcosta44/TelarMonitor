@@ -4,13 +4,14 @@ import { GetCurrentConsumption } from "@/application/use-cases/GetCurrentConsump
 import { GetSolarGeneration } from "@/application/use-cases/GetSolarGeneration";
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
 import { GetDailySummary } from "@/application/use-cases/GetDailySummary";
+import { createClient } from "@/infrastructure/supabase/server";
 
 import { ConsumptionCard } from "@/components/ConsumptionCard";
 import { SolarCard } from "@/components/SolarCard";
 import { BalanceIndicator } from "@/components/BalanceIndicator";
 import { HistoryChart, ChartDataPoint } from "@/components/HistoryChart";
-import { DashboardRefresher } from "@/components/DashboardRefresher";
 import { PdfExportButton } from "@/components/PdfExportButton";
+import { HouseholdOnboarding } from "@/components/HouseholdOnboarding";
 import { AlertCircle, Clock, Info, Zap, Sun, PiggyBank, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
@@ -50,8 +51,24 @@ export default async function DashboardPage({
 
   if (!isSupabaseConfigured) return <ConfigurationError />;
 
-  const energyRepo   = new SupabaseEnergyReadingRepository();
-  const settingsRepo = new SupabaseSettingsRepository();
+  const supabase = await createClient();
+
+  // Check if authenticated user has a household
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const { data: memberRows } = await supabase
+      .from('household_members')
+      .select('household_id')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (!memberRows || memberRows.length === 0) {
+      return <HouseholdOnboarding userEmail={user.email} />;
+    }
+  }
+
+  const energyRepo   = new SupabaseEnergyReadingRepository(supabase);
+  const settingsRepo = new SupabaseSettingsRepository(supabase);
 
   const getConsumption = new GetCurrentConsumption(energyRepo);
   const getSolar       = new GetSolarGeneration(energyRepo);
@@ -139,8 +156,6 @@ export default async function DashboardPage({
 
   return (
     <>
-      <DashboardRefresher intervalMs={10_000} />
-
       <div className="flex flex-col gap-6">
 
         {/* ── Dashboard Heading ─── */}

@@ -1,11 +1,11 @@
 import { SupabaseEnergyReadingRepository } from "@/infrastructure/supabase/SupabaseEnergyReadingRepository";
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
 import { HistoryChart, ChartDataPoint, ChartRange } from "@/components/HistoryChart";
-import { DashboardRefresher } from "@/components/DashboardRefresher";
-import { Calendar, Download, Zap, Sun, Leaf, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Zap, Sun, Leaf, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 import { ExportButton } from "@/components/ExportButton";
+import { createClient } from "@/infrastructure/supabase/server";
 
 export const revalidate = 60;
 
@@ -18,7 +18,8 @@ export default async function HistoricoPage({
   const rangeParam = params.range || "30d";
   const range: ChartRange = (rangeParam === "24h" || rangeParam === "7d" || rangeParam === "30d") ? rangeParam : "30d";
 
-  const energyRepo = new SupabaseEnergyReadingRepository();
+  const supabase = await createClient();
+  const energyRepo = new SupabaseEnergyReadingRepository(supabase);
   const getHistory = new GetHistoricalReadings(energyRepo);
 
   // We fetch 30 days of data to populate the charts AND the time patterns/recent days
@@ -122,8 +123,6 @@ export default async function HistoricoPage({
 
   return (
     <>
-      <DashboardRefresher intervalMs={60_000} />
-      
       <div className="flex flex-col gap-6 max-w-[1200px] mx-auto animate-fade-in print:max-w-none print:m-0 print:gap-4">
         
         {/* Header */}
