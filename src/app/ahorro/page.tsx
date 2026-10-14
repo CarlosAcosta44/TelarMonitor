@@ -9,6 +9,35 @@ export default async function AhorroPage() {
   const supabase = await createClient();
   const energyRepo = new SupabaseEnergyReadingRepository(supabase);
 
+  // Fetch active household details
+  const { data: { user } } = await supabase.auth.getUser();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let household: any = null;
+  if (user) {
+    const { data: memberRows } = await supabase
+      .from('household_members')
+      .select('household_id, households (*)')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (memberRows && memberRows.length > 0 && memberRows[0].households) {
+      household = memberRows[0].households;
+    }
+  }
+
+  if (!household) {
+    const { data: households } = await supabase
+      .from('households')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    household = households?.[0] || null;
+  }
+
+  const installationName = household?.installation_name || household?.name || 'Tu Instalación Solar';
+  const TARIFA = Number(household?.energy_rate_cop_per_kwh) || 950;
+  const EXPORT_RATE = Number(household?.export_rate) || 650;
+
   // Fetch exactly the daily summaries for 2026
   const summaries = await energyRepo.getDailySummaries(2026).catch(() => []);
 
@@ -19,9 +48,6 @@ export default async function AhorroPage() {
     facturaSinSistema: 0,
     facturaConSistema: 0
   }));
-
-  const TARIFA = 850; // COP per kWh (estimated from design)
-  const EXPORT_RATE = 650;
 
   summaries.forEach(day => {
     totalConsumido += day.total_consumption;
@@ -256,7 +282,7 @@ export default async function AhorroPage() {
                 <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/></svg>
               </div>
               <p className="text-sm text-emerald-800 dark:text-emerald-300 font-medium">
-                Tu instalación en <strong className="font-bold">Hogar Las Palmas</strong> ha superado el <strong className="font-bold">92%</strong> de eficiencia de absorción proyectada para el ciclo meteorológico 2026.
+                Tu instalación en <strong className="font-bold">{installationName}</strong> ha superado el <strong className="font-bold">92%</strong> de eficiencia de absorción proyectada para el ciclo meteorológico 2026.
               </p>
             </div>
           </div>
