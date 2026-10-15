@@ -3,9 +3,48 @@ import { Sun } from 'lucide-react';
 interface SolarCardProps {
   valueKwh: number;
   consumptionKwh: number;
+  hasSolar?: boolean;
 }
 
-export function SolarCard({ valueKwh, consumptionKwh }: SolarCardProps) {
+export function SolarCard({ valueKwh, consumptionKwh, hasSolar = true }: SolarCardProps) {
+  if (!hasSolar) {
+    return (
+      <div className="bg-white dark:bg-[#0B1628] rounded-2xl border border-slate-200 dark:border-slate-800 p-6 flex flex-col justify-between h-full shadow-sm">
+        <div>
+          <div className="flex items-start gap-3 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
+              <Sun className="w-4 h-4 opacity-50" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                Generación Solar
+              </h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                Sin paneles fotovoltaicos
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-baseline gap-1.5 mb-4">
+            <span className="text-3xl font-extrabold text-slate-400 dark:text-slate-500">
+              0.00
+            </span>
+            <span className="text-sm font-semibold text-slate-400">kW</span>
+          </div>
+
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+            Este hogar opera en modo <strong className="text-slate-700 dark:text-slate-300">Monitoreo de Red</strong>. Toda la energía proviene de la red eléctrica.
+          </p>
+        </div>
+
+        <div className="pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between text-xs">
+          <span className="text-slate-400">Modo:</span>
+          <span className="font-semibold text-slate-500">Consumo Convencional</span>
+        </div>
+      </div>
+    );
+  }
+
   const coverageRatio = consumptionKwh > 0 ? (valueKwh / consumptionKwh) * 100 : 0;
   const coveragePercent = Math.min(100, Math.round(coverageRatio));
   

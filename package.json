@@ -7,7 +7,10 @@
     "build": "NODE_OPTIONS=--dns-result-order=ipv4first next build",
     "start": "NODE_OPTIONS=--dns-result-order=ipv4first next start",
     "lint": "eslint",
-    "simulate:seed": "node scripts/seed-30-days.mjs",
+    "db:clean": "node scripts/clean-readings.mjs",
+    "simulate:seed": "node scripts/seed-readings.mjs --days=30",
+    "simulate:seed:7": "node scripts/seed-readings.mjs --days=7",
+    "simulate:seed:30": "node scripts/seed-readings.mjs --days=30",
     "simulate:tick": "node -e \"fetch('http://localhost:3000/api/simulate/reading',{method:'POST'}).then(r=>r.json()).then(console.log)\"",
     "simulate:live": "node simulate-live.js"
   },

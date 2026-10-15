@@ -2,6 +2,9 @@
 
 # dependencies
 /node_modules
+backend-simulator/node_modules
+backend-simulator/dist
+backend-simulator/.env
 /.pnp
 .pnp.*
 .yarn/*
