@@ -247,17 +247,16 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
           </button>
         </div>
       </div>
-
-      <AccountProfileModal
-        isOpen={isAccountModalOpen}
-        onClose={() => setIsAccountModalOpen(false)}
-        userEmail={userEmail || 'usuario@telar.co'}
-        userName={userName}
-        householdName={householdName}
-        role={userRole}
-      />
-
     </aside>
+
+    <AccountProfileModal
+      isOpen={isAccountModalOpen}
+      onClose={() => setIsAccountModalOpen(false)}
+      userEmail={userEmail || 'usuario@telar.co'}
+      userName={userName}
+      householdName={householdName}
+      role={userRole}
+    />
   </>
   );
 }
