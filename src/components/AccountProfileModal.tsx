@@ -39,6 +39,7 @@ export function AccountProfileModal({
 }: AccountProfileModalProps) {
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'perfil' | 'seguridad'>('perfil');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -57,23 +58,46 @@ export function AccountProfileModal({
     setLoading(true);
     setMsg(null);
 
+    if (!currentPassword) {
+      setMsg({ type: 'error', text: 'Debes ingresar tu contraseña actual' });
+      setLoading(false);
+      return;
+    }
+
     if (newPassword.length < 6) {
-      setMsg({ type: 'error', text: 'La contraseña debe tener al menos 6 caracteres' });
+      setMsg({ type: 'error', text: 'La nueva contraseña debe tener al menos 6 caracteres' });
       setLoading(false);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setMsg({ type: 'error', text: 'Las contraseñas no coinciden' });
+      setMsg({ type: 'error', text: 'Las nuevas contraseñas no coinciden' });
       setLoading(false);
       return;
     }
 
     try {
+      // 1. Reautenticar para validar la contraseña actual
+      const { data: { user } } = await supabase.auth.getUser();
+      const email = user?.email || userEmail;
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        setMsg({ type: 'error', text: 'La contraseña actual no es correcta' });
+        setLoading(false);
+        return;
+      }
+
+      // 2. Actualizar a la nueva contraseña
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
 
       setMsg({ type: 'success', text: '¡Contraseña actualizada exitosamente!' });
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setTimeout(() => {
@@ -221,6 +245,20 @@ export function AccountProfileModal({
         {/* Tab 2: Security & Password */}
         {activeTab === 'seguridad' && (
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Contraseña Actual
+              </label>
+              <input 
+                type="password"
+                value={currentPassword}
+                onChange={e => setCurrentPassword(e.target.value)}
+                placeholder="Ingresa tu clave actual"
+                required
+                className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Nueva Contraseña

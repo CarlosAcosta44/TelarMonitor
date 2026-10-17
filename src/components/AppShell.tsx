@@ -10,7 +10,7 @@ import { Menu } from 'lucide-react';
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
-  const isAuthPage = pathname === '/login';
+  const isAuthPage = pathname === '/login' || pathname === '/registro';
 
   if (isAuthPage) {
     return <div className="min-h-screen w-full">{children}</div>;

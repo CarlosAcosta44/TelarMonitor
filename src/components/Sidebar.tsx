@@ -107,21 +107,10 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
           setHouseholdName('Sin Hogar Vinculado');
           return;
         }
-      }
-
-
-      // Fallback for demo/anon mode
-      const { data: households } = await supabase
-        .from('households')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      const household = households && households.length > 0 ? households[0] : null;
-      const name = household?.installation_name || household?.name;
-      if (name) {
-        setHouseholdName(name);
-        return;
+      } else {
+        setUserEmail(null);
+        setUserName('Invitado');
+        setHouseholdName('Sin Sesión');
       }
     }
     loadUser();
