@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Settings, 
   Save, 
@@ -118,6 +119,7 @@ export function ConfiguracionClient({
   deleteHouseholdAction,
   removeMemberAction
 }: ConfiguracionClientProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'hogares' | 'datos' | 'tarifa' | 'usuarios' | 'dispositivos'>('hogares');
   const [isSaved, setIsSaved] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -150,6 +152,22 @@ export function ConfiguracionClient({
     export_rate: household.export_rate,
     currency: household.currency || 'COP',
   });
+
+  // Sync formData when active household changes via revalidation
+  useEffect(() => {
+    setFormData({
+      installation_name: household.installation_name,
+      location: household.location,
+      capacity_kwp: household.capacity_kwp,
+      orientation: household.orientation,
+      start_date: household.start_date,
+      utility_company: household.utility_company,
+      tariff_tier: household.tariff_tier,
+      import_rate: household.import_rate,
+      export_rate: household.export_rate,
+      currency: household.currency || 'COP',
+    });
+  }, [household]);
 
   // Simulation & Device State
   const [isSimulatingPulse, setIsSimulatingPulse] = useState(false);
@@ -310,9 +328,7 @@ export function ConfiguracionClient({
     if (res.success) {
       setJoinMsg({ type: 'success', text: res.message || '¡Te has unido exitosamente al hogar!' });
       setJoinCodeInput('');
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      router.refresh();
     } else {
       setJoinMsg({ type: 'error', text: res.error || 'Código de invitación no válido o expirado' });
     }
@@ -326,9 +342,7 @@ export function ConfiguracionClient({
       if (switchHouseholdAction) {
         const res = await switchHouseholdAction(targetHouseholdId);
         if (res.success) {
-          setTimeout(() => {
-            window.location.href = '/configuracion';
-          }, 100);
+          router.refresh();
           return;
         } else {
           setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al cambiar de hogar' });
@@ -350,9 +364,9 @@ export function ConfiguracionClient({
       if (leaveHouseholdAction) {
         const res = await leaveHouseholdAction(leaveConfirmId);
         if (res.success) {
-          setTimeout(() => {
-            window.location.href = '/configuracion';
-          }, 100);
+          setLeaveConfirmId(null);
+          setLeaveConfirmName(null);
+          router.refresh();
           return;
         } else {
           setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al salir del hogar' });
@@ -376,9 +390,9 @@ export function ConfiguracionClient({
       if (deleteHouseholdAction) {
         const res = await deleteHouseholdAction(deleteConfirmId);
         if (res.success) {
-          setTimeout(() => {
-            window.location.href = '/configuracion';
-          }, 100);
+          setDeleteConfirmId(null);
+          setDeleteConfirmName(null);
+          router.refresh();
           return;
         } else {
           setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al eliminar el hogar' });
@@ -402,9 +416,10 @@ export function ConfiguracionClient({
       if (removeMemberAction) {
         const res = await removeMemberAction(removeMemberConfirmId);
         if (res.success) {
-          setTimeout(() => {
-            window.location.href = '/configuracion';
-          }, 100);
+          setRemoveMemberConfirmId(null);
+          setRemoveMemberConfirmName(null);
+          setMemberActionMsg({ type: 'success', text: res.message || 'Miembro removido exitosamente.' });
+          router.refresh();
           return;
         } else {
           setMemberActionMsg({ type: 'error', text: res.error || 'Error al remover miembro' });
@@ -1810,14 +1825,17 @@ export function ConfiguracionClient({
                     <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/60">
                       <button
                         type="button"
-                        onClick={() => window.location.reload()}
+                        onClick={() => {
+                          setIsCreateModalOpen(false);
+                          router.refresh();
+                        }}
                         className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors text-center"
                       >
                         Ver en Mis Hogares
                       </button>
                       <button
                         type="button"
-                        onClick={() => { window.location.href = '/'; }}
+                        onClick={() => { router.push('/'); }}
                         className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
