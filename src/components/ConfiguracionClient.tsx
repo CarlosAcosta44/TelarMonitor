@@ -1793,30 +1793,32 @@ export function ConfiguracionClient({
 
                 {/* Final Action */}
                 {createPairingStep === 4 ? (
-                  <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
-                    <div className="flex items-center gap-3">
-                      <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <div>
-                        <h4 className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex flex-col gap-3.5 animate-fade-in">
+                    <div className="flex items-start sm:items-center gap-3">
+                      <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200">
                           ¡Hogar configurado y vinculado exitosamente!
                         </h4>
-                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                        <p className="text-[11px] sm:text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
                           Telemetría inicial generada. Ya puedes ver sus mediciones en tiempo real.
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 pt-3 border-t border-emerald-200/60 dark:border-emerald-800/60">
                       <button
                         type="button"
                         onClick={() => window.location.reload()}
-                        className="flex-1 sm:flex-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors text-center"
                       >
                         Ver en Mis Hogares
                       </button>
                       <button
                         type="button"
                         onClick={() => { window.location.href = '/'; }}
-                        className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>Ir al Dashboard</span>
