@@ -203,8 +203,7 @@ export async function createHouseholdAction(formData: FormData) {
       capacity_kwp: isNaN(capacityKwp) ? 4.2 : capacityKwp,
       invite_code: inviteCode,
       energy_rate_cop_per_kwh: 950,
-      export_rate: 650,
-      alert_threshold_kw: 5.0
+      export_rate: 650
     })
     .select('id')
     .single();
