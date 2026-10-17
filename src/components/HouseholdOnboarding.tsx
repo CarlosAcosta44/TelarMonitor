@@ -1,15 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Home, KeyRound, Plus, ArrowRight, Sun, MapPin, Zap } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Home, 
+  KeyRound, 
+  Plus, 
+  ArrowRight, 
+  Sun, 
+  MapPin, 
+  Zap, 
+  Cpu, 
+  Radio, 
+  CheckCircle2, 
+  ShieldCheck, 
+  Sparkles,
+  Loader2
+} from 'lucide-react';
 import { createHouseholdAction, joinHousehold } from '@/app/configuracion/actions';
+import { seedHistoricalAction } from '@/app/configuracion/simulatorActions';
 
 interface HouseholdOnboardingProps {
   userEmail?: string;
 }
 
 export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
-  const [mode, setMode] = useState<'choose' | 'create' | 'join'>('choose');
+  const [mode, setMode] = useState<'choose' | 'create' | 'join' | 'pairing'>('choose');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -19,6 +34,10 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
   const [hasSolarPanels, setHasSolarPanels] = useState(true);
   const [capacityKwp, setCapacityKwp] = useState('4.2');
   const [inviteCode, setInviteCode] = useState('');
+
+  // Pairing Simulation States
+  const [pairingStep, setPairingStep] = useState<1 | 2 | 3 | 4>(1);
+  const [createdHouseholdId, setCreatedHouseholdId] = useState<string | null>(null);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,8 +54,48 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
       setErrorMsg(res.error || 'Error al crear el hogar');
       setLoading(false);
     } else {
-      window.location.reload();
+      setCreatedHouseholdId(res.household_id || null);
+      setLoading(false);
+      setMode('pairing');
     }
+  };
+
+  // Automated Hardware Pairing Sequence
+  useEffect(() => {
+    if (mode !== 'pairing') return;
+
+    // Step 1 -> Step 2 after 1.8s
+    const timer1 = setTimeout(() => {
+      setPairingStep(2);
+    }, 1800);
+
+    // Step 2 -> Step 3 after 3.6s
+    const timer2 = setTimeout(() => {
+      setPairingStep(3);
+      // Seed initial 1-day telemetry in background so graphs have data immediately
+      if (createdHouseholdId) {
+        seedHistoricalAction({
+          days: 1,
+          cleanBefore: false,
+          householdId: createdHouseholdId
+        }).catch(err => console.warn('Sembrado inicial omitido o diferido:', err));
+      }
+    }, 3600);
+
+    // Step 3 -> Step 4 (Complete) after 5.4s
+    const timer3 = setTimeout(() => {
+      setPairingStep(4);
+    }, 5400);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [mode, createdHouseholdId]);
+
+  const handleCompletePairing = () => {
+    window.location.href = '/';
   };
 
   const handleJoinSubmit = async (e: React.FormEvent) => {
@@ -301,6 +360,188 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Mode: Pairing Simulation Wizard */}
+        {mode === 'pairing' && (
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden animate-fade-in">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-6 mb-6 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
+                  <Cpu className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    Vinculando Dispositivos IoT Telar
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Sincronizando telemetría y sensores para <span className="font-bold text-amber-600">{name}</span>
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 rounded-full text-xs font-bold">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                <span>Paso {pairingStep} de 4</span>
+              </div>
+            </div>
+
+            {/* Steps List */}
+            <div className="space-y-4 mb-8">
+              {/* Step 1: Energy Meter (ESP32 CT Clamp) */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                pairingStep >= 1 
+                  ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700' 
+                  : 'bg-slate-50/30 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 opacity-60'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      pairingStep > 1 
+                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400' 
+                        : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
+                    }`}>
+                      <Radio className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        Medidor Telar IoT (ESP32 / Sensor CT)
+                        <span className="text-[10px] font-mono font-normal text-slate-400">TELAR-MTR-8B</span>
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Sensor de pinza amperimétrica CT para medir consumo total de la red eléctrica (60Hz, 120V/240V).
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    {pairingStep === 1 ? (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Conectando...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="w-4 h-4" /> Vinculado
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Solar Inverter or Grid-Only Profile */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                pairingStep >= 2 
+                  ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700' 
+                  : 'bg-slate-50/30 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 opacity-60'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      hasSolarPanels
+                        ? pairingStep > 2
+                          ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
+                        : 'bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {hasSolarPanels ? <Sun className="w-5 h-5" /> : <Home className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        {hasSolarPanels ? `Inversor Solar Fotovoltaico (${capacityKwp} kWp)` : 'Modo Monitoreo Exclusivo de Red'}
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        {hasSolarPanels 
+                          ? 'Sincronizando bus de comunicación Modbus/RS485 para telemetría de generación solar e inyección.' 
+                          : 'Configuración sin paneles solares. Las métricas fotovoltaicas permanecerán en cero kilowatt-hora.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    {pairingStep < 2 ? (
+                      <span className="text-xs text-slate-400 font-semibold">En espera</span>
+                    ) : pairingStep === 2 ? (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                        <Loader2 className="w-4 h-4 animate-spin" /> {hasSolarPanels ? 'Sincronizando...' : 'Configurando...'}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="w-4 h-4" /> {hasSolarPanels ? 'Sincronizado' : 'Configurado'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 3: Telemetry Initialization */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                pairingStep >= 3 
+                  ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700' 
+                  : 'bg-slate-50/30 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 opacity-60'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      pairingStep === 4 
+                        ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400' 
+                        : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'
+                    }`}>
+                      <Zap className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                        Calibración y Telemetría Inicial
+                      </h4>
+                      <p className="text-xs text-slate-500">
+                        Inicializando lecturas de potencia activa, cálculo tarifario y primeros registros en tiempo real.
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    {pairingStep < 3 ? (
+                      <span className="text-xs text-slate-400 font-semibold">En espera</span>
+                    ) : pairingStep === 3 ? (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Calibrando...
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+                        <CheckCircle2 className="w-4 h-4" /> Listo
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Final Action */}
+            {pairingStep === 4 ? (
+              <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+                <div className="flex items-center gap-3">
+                  <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                      ¡Hogar configurado y vinculado exitosamente!
+                    </h4>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                      Todos los sensores virtuales y parámetros de red están transmitiendo en vivo.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleCompletePairing}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Entrar al Panel de Control</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-2">
+                <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                <span>Estableciendo enlace seguro TLS con el gateway Telar...</span>
+              </div>
+            )}
           </div>
         )}
       </div>

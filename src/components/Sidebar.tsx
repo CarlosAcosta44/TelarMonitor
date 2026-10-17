@@ -17,6 +17,7 @@ import {
   LogOut,
   X
 } from 'lucide-react';
+import { AccountProfileModal } from '@/components/AccountProfileModal';
 
 const navItems = [
   { name: 'Dashboard Principal', href: '/', icon: LayoutDashboard },
@@ -37,6 +38,9 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
   const { theme, setTheme } = useTheme();
   const [userEmail, setUserEmail] = React.useState<string | null>(null);
   const [householdName, setHouseholdName] = React.useState<string>('Hogar Las Palmas');
+  const [userName, setUserName] = React.useState<string>('Familia Propietaria');
+  const [userRole, setUserRole] = React.useState<string>('owner');
+  const [isAccountModalOpen, setIsAccountModalOpen] = React.useState<boolean>(false);
 
   React.useEffect(() => {
     // 1. Listen for immediate client-side updates (e.g. after saving in Settings)
@@ -59,14 +63,21 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
       }
       
       if (user) {
+        if (user.user_metadata?.full_name) {
+          setUserName(user.user_metadata.full_name);
+        } else if (user.email) {
+          setUserName(user.email.split('@')[0]);
+        }
+
         // Fetch household through member relation for the current user
         const { data: memberRows } = await supabase
           .from('household_members')
-          .select('household_id, households (name, installation_name)')
+          .select('household_id, role, households (name, installation_name)')
           .eq('user_id', user.id)
           .limit(1);
 
         if (memberRows && memberRows.length > 0) {
+          if (memberRows[0].role) setUserRole(memberRows[0].role);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const h = memberRows[0].households as any;
           const name = h?.installation_name || h?.name;
@@ -79,6 +90,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
           return;
         }
       }
+
 
       // Fallback for demo/anon mode
       const { data: households } = await supabase
@@ -210,10 +222,13 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
         </div>
 
         {/* User Profile & Logout */}
-        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800">
+        <div 
+          onClick={() => setIsAccountModalOpen(true)}
+          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
+        >
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User avatar" />
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+              {userName.slice(0, 2).toUpperCase()}
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{householdName}</p>
@@ -221,7 +236,10 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
             </div>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLogout();
+            }}
             title="Cerrar Sesión"
             className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
           >
@@ -230,7 +248,17 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
         </div>
       </div>
 
+      <AccountProfileModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        userEmail={userEmail || 'usuario@telar.co'}
+        userName={userName}
+        householdName={householdName}
+        role={userRole}
+      />
+
     </aside>
   </>
   );
 }
+

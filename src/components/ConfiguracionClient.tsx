@@ -101,8 +101,6 @@ export function ConfiguracionClient({
   });
 
   // Simulation & Device State
-  const [mvpActive, setMvpActive] = useState(true);
-  const [refreshRate, setRefreshRate] = useState(10);
   const [isSimulatingPulse, setIsSimulatingPulse] = useState(false);
   const [pulseFeedback, setPulseFeedback] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
@@ -112,12 +110,6 @@ export function ConfiguracionClient({
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinMsg, setJoinMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  // Password Modal State
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Simulator Modal State
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
@@ -213,29 +205,6 @@ export function ConfiguracionClient({
     navigator.clipboard.writeText('TELAR_HARDWARE_TOKEN_2026');
     setCopiedToken(true);
     setTimeout(() => setCopiedToken(false), 2500);
-  };
-
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!updatePasswordAction) return;
-    setPasswordLoading(true);
-    setPasswordMsg(null);
-
-    const fd = new FormData();
-    fd.append('new_password', newPassword);
-
-    const res = await updatePasswordAction(fd);
-    setPasswordLoading(false);
-    if (res.success) {
-      setPasswordMsg({ type: 'success', text: 'Contraseña actualizada con éxito' });
-      setNewPassword('');
-      setTimeout(() => {
-        setIsPasswordModalOpen(false);
-        setPasswordMsg(null);
-      }, 2000);
-    } else {
-      setPasswordMsg({ type: 'error', text: res.error || 'Error al cambiar contraseña' });
-    }
   };
 
   /*
@@ -351,11 +320,8 @@ export function ConfiguracionClient({
         ))}
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* Left Column (8 cols) - Dynamic Tab Content */}
-        <div className="lg:col-span-8 flex flex-col gap-6">
+      {/* Main Content Area */}
+      <div className="w-full flex flex-col gap-6">
           
           {/* ════════════ TAB 1: DATOS DEL HOGAR ════════════ */}
           {activeTab === 'datos' && (
@@ -969,216 +935,7 @@ export function ConfiguracionClient({
             </div>
           </div>
 
-        </div>
-
-        {/* Right Column (4 cols) */}
-        <div className="lg:col-span-4 flex flex-col gap-6">
-          
-          {/* Simulacion MVP */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Beaker className="w-4 h-4 text-emerald-500" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Simulación & Datos MVP</h3>
-              </div>
-              <span className={`w-2.5 h-2.5 rounded-full ${mvpActive ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-            </div>
-            <p className="text-xs text-slate-500 mb-6 leading-relaxed">Controla los parámetros de telemetría en vivo para pruebas del prototipo Telar.</p>
-
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 flex justify-between items-center mb-6">
-              <div>
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Datos en vivo MVP</h4>
-                <p className="text-[10px] text-slate-500">{mvpActive ? 'Generador virtual activo' : 'Generador pausado'}</p>
-              </div>
-              <button 
-                onClick={() => setMvpActive(!mvpActive)}
-                className={`w-12 h-6 rounded-full flex p-1 shrink-0 transition-colors ${mvpActive ? 'justify-end bg-emerald-600' : 'justify-start bg-slate-300 dark:bg-slate-700'}`}
-              >
-                <div className="w-4 h-4 bg-white rounded-full shadow-sm"></div>
-              </button>
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Frecuencia de Actualización</label>
-              <div className="flex gap-2">
-                {[5, 10, 30].map(val => (
-                  <button 
-                    key={val}
-                    onClick={() => setRefreshRate(val)}
-                    className={`flex-1 py-1.5 rounded-xl text-xs font-bold transition-all ${refreshRate === val ? 'bg-orange-600 text-white shadow-sm' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'}`}
-                  >
-                    {val} seg
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <button
-                onClick={handleTriggerSimulatedPulse}
-                disabled={isSimulatingPulse}
-                className="w-full py-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center justify-center gap-2 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
-              >
-                <Zap className="w-3.5 h-3.5" />
-                {isSimulatingPulse ? 'Sincronizando...' : 'Generar Pulso Manual'}
-              </button>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-slate-800/30 rounded-xl p-3 flex justify-between items-center text-xs">
-              <span className="text-slate-500">Último pulso IoT sincronizado</span>
-              <span className="font-bold text-slate-900 dark:text-white">
-                {lastTelemetryTimestamp ? new Date(lastTelemetryTimestamp).toLocaleTimeString('es-CO') : 'Hace 10 seg'}
-              </span>
-            </div>
-          </div>
-
-          {/* Gestion de Cuenta con Datos Reales */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-orange-500" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Gestión de Cuenta</h3>
-              </div>
-              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-full">
-                Sesión Activa
-              </span>
-            </div>
-
-            {/* Real User Profile */}
-            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold flex items-center justify-center shadow-sm shrink-0">
-                {user.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="overflow-hidden">
-                <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{user.name}</h4>
-                <p className="text-xs text-slate-500 truncate">{user.email}</p>
-              </div>
-            </div>
-
-            {/* Change Password Button */}
-            <button 
-              onClick={() => setIsPasswordModalOpen(true)}
-              className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl mb-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3">
-                <Lock className="w-4 h-4 text-slate-400" />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Cambiar contraseña</span>
-              </div>
-              <span className="text-slate-400 text-xs font-bold">&gt;</span>
-            </button>
-
-            {/* Invite Household Member Button */}
-            <button 
-              onClick={() => setActiveTab('usuarios')}
-              className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl mb-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left"
-            >
-              <div className="flex items-center gap-3 text-left">
-                <UserPlus className="w-4 h-4 text-slate-400 shrink-0" />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Invitar miembro del hogar</span>
-              </div>
-              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-[10px] font-bold whitespace-nowrap">
-                {members.length + 1} activos
-              </span>
-            </button>
-
-            {/* Notifications Button */}
-            <div className="w-full flex justify-between items-center px-4 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl mb-6">
-              <div className="flex items-center gap-3 text-left">
-                <Bell className="w-4 h-4 text-slate-400 shrink-0" />
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Notificaciones de red</span>
-              </div>
-              <span className="text-[10px] font-bold text-emerald-600 text-right leading-tight">
-                Push & Web
-              </span>
-            </div>
-
-            <div className="flex justify-between items-center border-t border-slate-100 dark:border-slate-800 pt-4 mb-2">
-              <span className="text-xs text-slate-500">ID Hogar Telar</span>
-              <span className="text-xs font-mono font-bold text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
-                {household.id.slice(0, 15)}...
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-slate-500">Código de Invitación</span>
-              <button
-                type="button"
-                onClick={handleCopyInviteCode}
-                className="text-xs font-mono font-bold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 px-2 py-1 rounded-lg hover:bg-purple-100 transition-colors flex items-center gap-1"
-                title="Copiar código de invitación"
-              >
-                {household.invite_code || '8B741183'}
-                {copiedInviteCode ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-              </button>
-            </div>
-          </div>
-
-        </div>
       </div>
-
-      {/* Password Modal */}
-      {isPasswordModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl relative">
-            <button 
-              onClick={() => setIsPasswordModalOpen(false)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-2xl">
-                <Lock className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Cambiar Contraseña</h3>
-                <p className="text-xs text-slate-500">Actualiza tu clave de acceso a Telar Monitor</p>
-              </div>
-            </div>
-
-            {passwordMsg && (
-              <div className={`p-3 rounded-xl mb-4 text-xs font-semibold flex items-center gap-2 ${
-                passwordMsg.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
-              }`}>
-                {passwordMsg.type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                {passwordMsg.text}
-              </div>
-            )}
-
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nueva Contraseña</label>
-                <input 
-                  type="password"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  required
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsPasswordModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={passwordLoading}
-                  className="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold shadow-sm transition-colors flex items-center gap-2"
-                >
-                  {passwordLoading ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : null}
-                  Actualizar Contraseña
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Simulator & Telemetry Modal */}
       <SimulatorControlModal

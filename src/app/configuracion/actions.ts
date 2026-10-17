@@ -222,5 +222,5 @@ export async function createHouseholdAction(formData: FormData) {
   revalidatePath('/configuracion');
   revalidatePath('/historico');
   revalidatePath('/ahorro');
-  return { success: true, message: '¡Hogar creado exitosamente!' };
+  return { success: true, message: '¡Hogar creado exitosamente!', household_id: household.id };
 }
