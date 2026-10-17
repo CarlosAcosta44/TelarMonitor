@@ -8,7 +8,8 @@ import {
   joinHousehold, 
   switchHouseholdAction, 
   leaveHouseholdAction, 
-  deleteHouseholdAction 
+  deleteHouseholdAction,
+  removeHouseholdMemberAction
 } from "./actions";
 import { redirect } from "next/navigation";
 
@@ -33,11 +34,40 @@ export default async function ConfiguracionPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const household: any = activeHousehold;
 
-  // 3. Fetch household members for current household
-  const { data: members } = await supabase
-    .from('household_members')
-    .select('*')
-    .eq('household_id', household.id);
+  // 3. Fetch household members for current household (with profile info if available)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let rawMembers: any[] = [];
+  const { data: rpcMembers, error: rpcErr } = await supabase.rpc('get_household_members_with_profiles', {
+    p_household_id: household.id
+  });
+
+  if (!rpcErr && Array.isArray(rpcMembers)) {
+    rawMembers = rpcMembers;
+  } else {
+    const { data: directMembers } = await supabase
+      .from('household_members')
+      .select('*')
+      .eq('household_id', household.id);
+    rawMembers = directMembers || [];
+  }
+
+  // Format members ensuring the active user has their full profile and fallback formatting for others
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const safeMembers = rawMembers.map((m: any) => {
+    const isCurrent = m.user_id === user.id;
+    return {
+      id: m.id,
+      user_id: m.user_id,
+      role: m.role || 'viewer',
+      created_at: m.created_at || new Date().toISOString(),
+      name: isCurrent
+        ? (user.user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Tú'))
+        : (m.user_name || m.name || null),
+      email: isCurrent
+        ? user.email
+        : (m.user_email || m.email || null)
+    };
+  });
 
   // 4. Fetch last telemetry pulse from energy_readings for this household
   const { data: lastReading } = await supabase
@@ -94,7 +124,7 @@ export default async function ConfiguracionPage() {
     <ConfiguracionClient
       household={safeHousehold}
       user={safeUser}
-      members={members || []}
+      members={safeMembers}
       userRole={role || 'viewer'}
       allMemberships={safeMemberships}
       lastTelemetryTimestamp={lastReading?.recorded_at || null}
@@ -105,6 +135,7 @@ export default async function ConfiguracionPage() {
       switchHouseholdAction={switchHouseholdAction}
       leaveHouseholdAction={leaveHouseholdAction}
       deleteHouseholdAction={deleteHouseholdAction}
+      removeMemberAction={removeHouseholdMemberAction}
     />
   );
 }

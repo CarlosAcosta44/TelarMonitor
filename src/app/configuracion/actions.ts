@@ -340,33 +340,48 @@ export async function deleteHouseholdAction(householdId: string) {
     return { success: false, error: 'No autenticado' };
   }
 
-  // Check role
-  const { data: member } = await supabase
-    .from('household_members')
-    .select('role')
-    .eq('household_id', householdId)
-    .eq('user_id', user.id)
-    .single();
+  // 1. Try atomic RPC procedure first
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('delete_household_by_owner', {
+    p_household_id: householdId
+  });
 
-  if (!member || member.role !== 'owner') {
-    return { success: false, error: 'Solo el propietario (owner) puede eliminar este hogar' };
+  if (!rpcErr && rpcRes) {
+    if (!rpcRes.success) {
+      return { success: false, error: rpcRes.error };
+    }
+  } else {
+    // 2. Direct delete fallback: check role
+    const { data: member } = await supabase
+      .from('household_members')
+      .select('role')
+      .eq('household_id', householdId)
+      .eq('user_id', user.id)
+      .single();
+
+    if (member && member.role !== 'owner') {
+      return { success: false, error: 'Solo el propietario (owner) puede eliminar este hogar' };
+    }
+
+    // CRITICAL: Delete households table FIRST while the owner membership still exists in household_members!
+    // (If household_members was deleted first, RLS policy public.is_household_owner() would evaluate to false)
+    const { error: hDelError } = await supabase
+      .from('households')
+      .delete()
+      .eq('id', householdId);
+
+    if (hDelError) {
+      console.error('Error deleting household:', hDelError);
+      return { success: false, error: hDelError.message };
+    }
+
+    // Clean up dependencies if ON DELETE CASCADE was not triggered
+    await supabase.from('energy_readings').delete().eq('household_id', householdId);
+    await supabase.from('system_alerts').delete().eq('household_id', householdId);
+    await supabase.from('household_invitations').delete().eq('household_id', householdId);
+    await supabase.from('household_members').delete().eq('household_id', householdId);
   }
 
-  // Delete dependencies in order
-  await supabase.from('energy_readings').delete().eq('household_id', householdId);
-  await supabase.from('system_alerts').delete().eq('household_id', householdId);
-  await supabase.from('household_members').delete().eq('household_id', householdId);
-
-  const { error: hDelError } = await supabase
-    .from('households')
-    .delete()
-    .eq('id', householdId);
-
-  if (hDelError) {
-    return { success: false, error: hDelError.message };
-  }
-
-  // Clear cookie
+  // Clear active cookie if it matches the deleted household
   const cookieStore = await cookies();
   if (cookieStore.get('telar_active_household_id')?.value === householdId) {
     cookieStore.delete('telar_active_household_id');
@@ -379,4 +394,62 @@ export async function deleteHouseholdAction(householdId: string) {
   revalidatePath('/alertas');
 
   return { success: true, message: 'Hogar eliminado exitosamente.' };
+}
+
+export async function removeHouseholdMemberAction(memberId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'No autenticado' };
+  }
+
+  // 1. Try atomic RPC procedure first
+  const { data: rpcRes, error: rpcErr } = await supabase.rpc('remove_household_member', {
+    p_member_id: memberId
+  });
+
+  if (!rpcErr && rpcRes) {
+    if (!rpcRes.success) {
+      return { success: false, error: rpcRes.error };
+    }
+  } else {
+    // 2. Direct fallback
+    const { data: targetMember } = await supabase
+      .from('household_members')
+      .select('household_id, role, user_id')
+      .eq('id', memberId)
+      .single();
+
+    if (!targetMember) {
+      return { success: false, error: 'Miembro no encontrado' };
+    }
+
+    if (targetMember.role === 'owner') {
+      return { success: false, error: 'No se puede remover al propietario del hogar' };
+    }
+
+    // Verify caller has owner or admin role
+    const { data: callerMembership } = await supabase
+      .from('household_members')
+      .select('role')
+      .eq('household_id', targetMember.household_id)
+      .eq('user_id', user.id)
+      .single();
+
+    if (!callerMembership || !['owner', 'admin'].includes(callerMembership.role)) {
+      return { success: false, error: 'No tienes permisos para remover miembros de este hogar' };
+    }
+
+    const { error: delError } = await supabase
+      .from('household_members')
+      .delete()
+      .eq('id', memberId);
+
+    if (delError) {
+      return { success: false, error: delError.message };
+    }
+  }
+
+  revalidatePath('/configuracion');
+  return { success: true, message: 'Miembro removido exitosamente.' };
 }

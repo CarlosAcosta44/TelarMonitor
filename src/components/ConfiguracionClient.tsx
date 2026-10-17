@@ -68,6 +68,8 @@ interface MemberData {
   user_id: string;
   role: string;
   created_at: string;
+  name?: string | null;
+  email?: string | null;
 }
 
 export interface MembershipData {
@@ -98,6 +100,7 @@ interface ConfiguracionClientProps {
   switchHouseholdAction?: (householdId: string) => Promise<{ success: boolean; error?: string }>;
   leaveHouseholdAction?: (householdId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   deleteHouseholdAction?: (householdId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  removeMemberAction?: (memberId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
 }
 
 export function ConfiguracionClient({ 
@@ -112,7 +115,8 @@ export function ConfiguracionClient({
   joinHouseholdAction,
   switchHouseholdAction,
   leaveHouseholdAction,
-  deleteHouseholdAction
+  deleteHouseholdAction,
+  removeMemberAction
 }: ConfiguracionClientProps) {
   const [activeTab, setActiveTab] = useState<'hogares' | 'datos' | 'tarifa' | 'usuarios' | 'dispositivos'>('hogares');
   const [isSaved, setIsSaved] = useState(true);
@@ -124,10 +128,14 @@ export function ConfiguracionClient({
   const [deleteConfirmName, setDeleteConfirmName] = useState<string | null>(null);
   const [leaveConfirmId, setLeaveConfirmId] = useState<string | null>(null);
   const [leaveConfirmName, setLeaveConfirmName] = useState<string | null>(null);
+  const [removeMemberConfirmId, setRemoveMemberConfirmId] = useState<string | null>(null);
+  const [removeMemberConfirmName, setRemoveMemberConfirmName] = useState<string | null>(null);
   const [isSwitching, setIsSwitching] = useState<string | null>(null);
   const [isLeaving, setIsLeaving] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isRemovingMember, setIsRemovingMember] = useState<string | null>(null);
   const [householdActionMsg, setHouseholdActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [memberActionMsg, setMemberActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -318,7 +326,9 @@ export function ConfiguracionClient({
       if (switchHouseholdAction) {
         const res = await switchHouseholdAction(targetHouseholdId);
         if (res.success) {
-          window.location.reload();
+          setTimeout(() => {
+            window.location.href = '/configuracion';
+          }, 100);
           return;
         } else {
           setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al cambiar de hogar' });
@@ -340,7 +350,9 @@ export function ConfiguracionClient({
       if (leaveHouseholdAction) {
         const res = await leaveHouseholdAction(leaveConfirmId);
         if (res.success) {
-          window.location.reload();
+          setTimeout(() => {
+            window.location.href = '/configuracion';
+          }, 100);
           return;
         } else {
           setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al salir del hogar' });
@@ -364,7 +376,9 @@ export function ConfiguracionClient({
       if (deleteHouseholdAction) {
         const res = await deleteHouseholdAction(deleteConfirmId);
         if (res.success) {
-          window.location.reload();
+          setTimeout(() => {
+            window.location.href = '/configuracion';
+          }, 100);
           return;
         } else {
           setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al eliminar el hogar' });
@@ -377,6 +391,32 @@ export function ConfiguracionClient({
       setIsDeleting(null);
       setDeleteConfirmId(null);
       setDeleteConfirmName(null);
+    }
+  };
+
+  const handleRemoveMember = async () => {
+    if (!removeMemberConfirmId) return;
+    setIsRemovingMember(removeMemberConfirmId);
+    setMemberActionMsg(null);
+    try {
+      if (removeMemberAction) {
+        const res = await removeMemberAction(removeMemberConfirmId);
+        if (res.success) {
+          setTimeout(() => {
+            window.location.href = '/configuracion';
+          }, 100);
+          return;
+        } else {
+          setMemberActionMsg({ type: 'error', text: res.error || 'Error al remover miembro' });
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al remover miembro';
+      setMemberActionMsg({ type: 'error', text: msg });
+    } finally {
+      setIsRemovingMember(null);
+      setRemoveMemberConfirmId(null);
+      setRemoveMemberConfirmName(null);
     }
   };
 
@@ -454,21 +494,21 @@ export function ConfiguracionClient({
           </p>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-4 w-full md:w-auto justify-start sm:justify-end">
           {saveSuccessMsg && (
             <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-bold bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full animate-fade-in">
               <CheckCircle2 className="w-4 h-4" /> {saveSuccessMsg}
             </span>
           )}
           {isSaved && !saveSuccessMsg && (
-            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-sm font-bold bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full">
+            <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm font-bold bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full">
               <CheckCircle2 className="w-4 h-4" /> Sincronizado
             </span>
           )}
           <button
             type="button"
             onClick={() => setIsSimulatorModalOpen(true)}
-            className="px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-all shadow-sm"
+            className="flex-1 sm:flex-initial px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-all shadow-sm"
           >
             <Cpu className="w-4 h-4 text-amber-500" />
             Simulador IoT
@@ -477,7 +517,7 @@ export function ConfiguracionClient({
           <button 
             onClick={() => handleSubmit()}
             disabled={isSaving}
-            className={`px-6 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-sm ${
+            className={`flex-1 sm:flex-initial px-3.5 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${
               !isSaved 
                 ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-amber-600/25 shadow-lg' 
                 : 'bg-slate-800 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 text-white'
@@ -1046,12 +1086,23 @@ export function ConfiguracionClient({
                   </span>
                 </div>
 
+                {memberActionMsg && (
+                  <div className={`p-4 rounded-2xl mb-6 text-xs font-semibold flex items-center gap-2 ${
+                    memberActionMsg.type === 'success'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                      : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  }`}>
+                    {memberActionMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                    <span>{memberActionMsg.text}</span>
+                  </div>
+                )}
+
                 {/* Member List */}
                 <div className="space-y-3 mb-6">
                   {/* Current Authenticated User */}
                   {(() => {
                     const myMembership = members.find(m => m.user_id === user.id);
-                    const myRole = myMembership?.role || 'owner';
+                    const myRole = myMembership?.role || userRole || 'owner';
                     const roleLabel = myRole === 'owner' ? 'Propietario (Owner)' : myRole === 'admin' ? 'Administrador' : 'Observador (Viewer)';
                     return (
                       <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
@@ -1088,22 +1139,54 @@ export function ConfiguracionClient({
                         </div>
                       );
                     }
-                    return otherMembers.map(member => (
-                      <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="w-10 h-10 rounded-full bg-slate-400 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                            MB
+
+                    const isCallerOwner = userRole === 'owner' || members.find(m => m.user_id === user.id)?.role === 'owner';
+                    const isCallerAdmin = userRole === 'admin' || members.find(m => m.user_id === user.id)?.role === 'admin';
+                    const canManage = isCallerOwner || isCallerAdmin;
+
+                    return otherMembers.map(member => {
+                      const displayName = member.name || (member.email ? member.email.split('@')[0] : `Usuario ${member.user_id.slice(0, 6)}`);
+                      const initials = displayName.slice(0, 2).toUpperCase();
+                      const roleDisplay = member.role === 'owner' ? 'Propietario' : member.role === 'admin' ? 'Administrador' : 'Observador (Viewer)';
+
+                      return (
+                        <div key={member.id} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 transition-all hover:bg-slate-100/50 dark:hover:bg-slate-800/60">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+                              {initials}
+                            </div>
+                            <div className="overflow-hidden">
+                              <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                                {displayName}
+                              </h4>
+                              <p className="text-xs text-slate-500 truncate">
+                                {member.email || `ID: ${member.user_id.slice(0, 12)}...`}
+                              </p>
+                            </div>
                           </div>
-                          <div className="overflow-hidden">
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">Miembro ({member.role})</h4>
-                            <p className="text-xs text-slate-500 truncate">ID: {member.user_id.slice(0, 12)}...</p>
+                          <div className="flex items-center gap-2">
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                              {roleDisplay}
+                            </span>
+
+                            {canManage && member.role !== 'owner' && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRemoveMemberConfirmId(member.id);
+                                  setRemoveMemberConfirmName(displayName);
+                                }}
+                                disabled={isRemovingMember !== null}
+                                title="Remover miembro del hogar"
+                                className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 capitalize">
-                          {member.role}
-                        </span>
-                      </div>
-                    ));
+                      );
+                    });
                   })()}
                 </div>
 
@@ -1750,6 +1833,50 @@ export function ConfiguracionClient({
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* Remove Member Confirmation Modal */}
+      {removeMemberConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800/60 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
+            <div className="flex items-center gap-3 text-red-600 dark:text-red-400 mb-4">
+              <div className="p-3 rounded-2xl bg-red-100 dark:bg-red-950/60">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white">¿Remover a este miembro?</h3>
+                <p className="text-xs text-red-600 dark:text-red-400 font-semibold">Desvinculación de usuario</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
+              ¿Estás seguro de que deseas desvincular a <span className="font-bold text-slate-900 dark:text-white">{removeMemberConfirmName}</span> de este hogar? Esta persona perderá el acceso a las mediciones y telemetría de esta instalación.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setRemoveMemberConfirmId(null);
+                  setRemoveMemberConfirmName(null);
+                }}
+                disabled={isRemovingMember !== null}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleRemoveMember}
+                disabled={isRemovingMember !== null}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 shadow-sm transition-colors"
+              >
+                {isRemovingMember ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {isRemovingMember ? 'Removiendo...' : 'Sí, Remover'}
+              </button>
+            </div>
           </div>
         </div>
       )}
