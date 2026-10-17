@@ -51,16 +51,13 @@ export default function RegisterPage() {
         return;
       }
 
-      // If user has a session (email confirmation off or auto-confirmed)
-      if (data.session) {
-        setSuccess('¡Cuenta creada con éxito! Redirigiendo a la configuración de tu hogar...');
-        setTimeout(() => {
-          router.push('/');
-          router.refresh();
-        }, 1500);
-      } else {
-        setSuccess('¡Registro completado! Si tu proyecto requiere confirmación por correo, revisa tu bandeja de entrada o inicia sesión.');
-      }
+      // Sign out any auto-session so the user enters through the login page
+      await supabase.auth.signOut();
+
+      setSuccess('¡Cuenta creada exitosamente! Redirigiendo al inicio de sesión...');
+      setTimeout(() => {
+        router.push(`/login?registered=true&email=${encodeURIComponent(email.trim())}`);
+      }, 1200);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error inesperado durante el registro';
       setError(message);
