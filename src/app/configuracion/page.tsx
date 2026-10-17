@@ -1,6 +1,15 @@
 import { ConfiguracionClient } from "@/components/ConfiguracionClient";
 import { createClient } from "@/infrastructure/supabase/server";
-import { updateSettings, updatePassword, inviteHouseholdMember, joinHousehold } from "./actions";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
+import { 
+  updateSettings, 
+  updatePassword, 
+  inviteHouseholdMember, 
+  joinHousehold, 
+  switchHouseholdAction, 
+  leaveHouseholdAction, 
+  deleteHouseholdAction 
+} from "./actions";
 import { redirect } from "next/navigation";
 
 export const revalidate = 0; // Don't cache settings page
@@ -14,21 +23,17 @@ export default async function ConfiguracionPage() {
     redirect('/login');
   }
 
-  // 2. Fetch household data through household_members
-  const { data: memberRows } = await supabase
-    .from('household_members')
-    .select('household_id, role, households (*)')
-    .eq('user_id', user.id)
-    .limit(1);
+  // 2. Fetch active household and all memberships through getActiveHousehold
+  const { activeHousehold, role, allMemberships } = await getActiveHousehold(supabase, user.id);
 
-  if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
+  if (!activeHousehold) {
     redirect('/?notice=sin_hogar');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const household: any = memberRows[0].households;
+  const household: any = activeHousehold;
 
-  // 3. Fetch household members
+  // 3. Fetch household members for current household
   const { data: members } = await supabase
     .from('household_members')
     .select('*')
@@ -64,6 +69,20 @@ export default async function ConfiguracionPage() {
     invite_code: household?.invite_code || 'ACOSTA26',
   };
 
+  const safeMemberships = allMemberships.map(m => ({
+    id: m.id,
+    household_id: m.household_id,
+    role: m.role,
+    household: {
+      id: m.household.id,
+      name: m.household.name,
+      installation_name: m.household.installation_name || m.household.name,
+      location: m.household.location || 'Colombia',
+      capacity_kwp: String(m.household.capacity_kwp ?? '0'),
+      invite_code: m.household.invite_code,
+    }
+  }));
+
   const safeUser = {
     id: user?.id || 'usr-local-owner',
     email: user?.email || 'admin@telar.co',
@@ -76,11 +95,16 @@ export default async function ConfiguracionPage() {
       household={safeHousehold}
       user={safeUser}
       members={members || []}
+      userRole={role || 'viewer'}
+      allMemberships={safeMemberships}
       lastTelemetryTimestamp={lastReading?.recorded_at || null}
       updateSettingsAction={updateSettings}
       updatePasswordAction={updatePassword}
       inviteMemberAction={inviteHouseholdMember}
       joinHouseholdAction={joinHousehold}
+      switchHouseholdAction={switchHouseholdAction}
+      leaveHouseholdAction={leaveHouseholdAction}
+      deleteHouseholdAction={deleteHouseholdAction}
     />
   );
 }

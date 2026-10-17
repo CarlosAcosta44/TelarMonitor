@@ -90,17 +90,28 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
         // Fetch household through member relation for the current user
         const { data: memberRows } = await supabase
           .from('household_members')
-          .select('household_id, role, households (name, installation_name)')
-          .eq('user_id', user.id)
-          .limit(1);
+          .select('household_id, role, households (id, name, installation_name)')
+          .eq('user_id', user.id);
 
         if (memberRows && memberRows.length > 0) {
-          if (memberRows[0].role) setUserRole(memberRows[0].role);
+          // Read active household cookie
+          const cookieMatch = document.cookie.match(/telar_active_household_id=([^;]+)/);
+          const activeId = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const h = memberRows[0].households as any;
-          const name = h?.installation_name || h?.name;
-          if (name) {
-            setHouseholdName(name);
+          const valid = memberRows.filter((r: any) => r.households);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const matched = activeId ? valid.find((r: any) => r.household_id === activeId) : null;
+          const current = matched || valid[0];
+
+          if (current) {
+            if (current.role) setUserRole(current.role);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const h = current.households as any;
+            const name = h?.installation_name || h?.name;
+            if (name) {
+              setHouseholdName(name);
+            }
             return;
           }
         } else {

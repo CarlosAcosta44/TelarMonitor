@@ -28,7 +28,13 @@ import {
   ShieldCheck,
   X,
   AlertCircle,
-  Cpu
+  Cpu,
+  Home,
+  Trash2,
+  LogOut,
+  ArrowRightLeft,
+  AlertTriangle,
+  Plus
 } from "lucide-react";
 import { SimulatorControlModal } from "@/components/SimulatorControlModal";
 
@@ -61,30 +67,64 @@ interface MemberData {
   created_at: string;
 }
 
+export interface MembershipData {
+  id: string;
+  household_id: string;
+  role: string;
+  household: {
+    id: string;
+    name: string;
+    installation_name?: string;
+    location?: string;
+    capacity_kwp?: string;
+    invite_code?: string;
+  };
+}
+
 interface ConfiguracionClientProps {
   household: HouseholdData;
   user: UserData;
   members: MemberData[];
+  userRole?: string;
+  allMemberships?: MembershipData[];
   lastTelemetryTimestamp: string | null;
   updateSettingsAction: (formData: FormData) => Promise<{ success: boolean }>;
   updatePasswordAction?: (formData: FormData) => Promise<{ success: boolean; error?: string }>;
   inviteMemberAction?: (formData: FormData) => Promise<{ success: boolean; message?: string; error?: string }>;
   joinHouseholdAction?: (formData: FormData) => Promise<{ success: boolean; message?: string; error?: string }>;
+  switchHouseholdAction?: (householdId: string) => Promise<{ success: boolean; error?: string }>;
+  leaveHouseholdAction?: (householdId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+  deleteHouseholdAction?: (householdId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
 }
 
 export function ConfiguracionClient({ 
   household, 
   user, 
   members, 
+  userRole = 'viewer',
+  allMemberships = [],
   lastTelemetryTimestamp, 
   updateSettingsAction,
   updatePasswordAction,
-  joinHouseholdAction
+  joinHouseholdAction,
+  switchHouseholdAction,
+  leaveHouseholdAction,
+  deleteHouseholdAction
 }: ConfiguracionClientProps) {
-  const [activeTab, setActiveTab] = useState<'datos' | 'tarifa' | 'usuarios' | 'dispositivos'>('datos');
+  const [activeTab, setActiveTab] = useState<'hogares' | 'datos' | 'tarifa' | 'usuarios' | 'dispositivos'>('hogares');
   const [isSaved, setIsSaved] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Household Management State
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState<string | null>(null);
+  const [leaveConfirmId, setLeaveConfirmId] = useState<string | null>(null);
+  const [leaveConfirmName, setLeaveConfirmName] = useState<string | null>(null);
+  const [isSwitching, setIsSwitching] = useState<string | null>(null);
+  const [isLeaving, setIsLeaving] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [householdActionMsg, setHouseholdActionMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -177,9 +217,81 @@ export function ConfiguracionClient({
     if (res.success) {
       setJoinMsg({ type: 'success', text: res.message || '¡Te has unido exitosamente al hogar!' });
       setJoinCodeInput('');
-      setTimeout(() => setJoinMsg(null), 4000);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } else {
       setJoinMsg({ type: 'error', text: res.error || 'Código de invitación no válido o expirado' });
+    }
+  };
+
+  const handleSwitchHousehold = async (targetHouseholdId: string) => {
+    if (targetHouseholdId === household.id) return;
+    setIsSwitching(targetHouseholdId);
+    setHouseholdActionMsg(null);
+    try {
+      if (switchHouseholdAction) {
+        const res = await switchHouseholdAction(targetHouseholdId);
+        if (res.success) {
+          window.location.reload();
+          return;
+        } else {
+          setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al cambiar de hogar' });
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al cambiar de hogar';
+      setHouseholdActionMsg({ type: 'error', text: msg });
+    } finally {
+      setIsSwitching(null);
+    }
+  };
+
+  const handleLeaveHousehold = async () => {
+    if (!leaveConfirmId) return;
+    setIsLeaving(leaveConfirmId);
+    setHouseholdActionMsg(null);
+    try {
+      if (leaveHouseholdAction) {
+        const res = await leaveHouseholdAction(leaveConfirmId);
+        if (res.success) {
+          window.location.reload();
+          return;
+        } else {
+          setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al salir del hogar' });
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al salir del hogar';
+      setHouseholdActionMsg({ type: 'error', text: msg });
+    } finally {
+      setIsLeaving(null);
+      setLeaveConfirmId(null);
+      setLeaveConfirmName(null);
+    }
+  };
+
+  const handleDeleteHousehold = async () => {
+    if (!deleteConfirmId) return;
+    setIsDeleting(deleteConfirmId);
+    setHouseholdActionMsg(null);
+    try {
+      if (deleteHouseholdAction) {
+        const res = await deleteHouseholdAction(deleteConfirmId);
+        if (res.success) {
+          window.location.reload();
+          return;
+        } else {
+          setHouseholdActionMsg({ type: 'error', text: res.error || 'Error al eliminar el hogar' });
+        }
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al eliminar el hogar';
+      setHouseholdActionMsg({ type: 'error', text: msg });
+    } finally {
+      setIsDeleting(null);
+      setDeleteConfirmId(null);
+      setDeleteConfirmName(null);
     }
   };
 
@@ -300,6 +412,7 @@ export function ConfiguracionClient({
       {/* Tabs */}
       <div className="flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-sm overflow-x-auto hide-scrollbar">
         {[
+          { id: 'hogares', label: 'Mis Hogares', icon: Home, count: allMemberships.length > 0 ? allMemberships.length : undefined },
           { id: 'datos', label: 'Datos del Hogar e Instalación', icon: Sun },
           { id: 'tarifa', label: 'Tarifa Eléctrica y Facturación', icon: Banknote },
           { id: 'usuarios', label: 'Usuarios y Permisos', icon: Users },
@@ -307,7 +420,7 @@ export function ConfiguracionClient({
         ].map(tab => (
           <button 
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as 'datos' | 'tarifa' | 'usuarios' | 'dispositivos')}
+            onClick={() => setActiveTab(tab.id as 'hogares' | 'datos' | 'tarifa' | 'usuarios' | 'dispositivos')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${
               activeTab === tab.id 
                 ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 shadow-sm' 
@@ -315,14 +428,206 @@ export function ConfiguracionClient({
             }`}
           >
             <tab.icon className="w-4 h-4" />
-            {tab.label}
+            <span>{tab.label}</span>
+            {tab.count !== undefined && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === tab.id
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+              }`}>
+                {tab.count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {/* Main Content Area */}
       <div className="w-full flex flex-col gap-6">
-          
+
+          {/* ════════════ TAB 0: MIS HOGARES ════════════ */}
+          {activeTab === 'hogares' && (
+            <div className="flex flex-col gap-6 animate-fade-in">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
+                      <Home className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                        Viviendas e Instalaciones Vinculadas
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Gestiona tus hogares, alterna de forma activa entre ellos o sal/elimina propiedades.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href="/?action=create_household"
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Crear Nuevo Hogar
+                    </a>
+                  </div>
+                </div>
+
+                {householdActionMsg && (
+                  <div className={`p-4 rounded-2xl mb-6 text-xs font-semibold flex items-center gap-2 ${
+                    householdActionMsg.type === 'success'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                      : 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+                  }`}>
+                    {householdActionMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                    <span>{householdActionMsg.text}</span>
+                  </div>
+                )}
+
+                {/* List of User's Households */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  {allMemberships?.map((m) => {
+                    const isCurrent = m.household_id === household.id;
+                    const isOwner = m.role === 'owner';
+                    const cap = parseFloat(m.household.capacity_kwp || '0');
+
+                    return (
+                      <div 
+                        key={m.id}
+                        className={`p-5 rounded-2xl border transition-all relative flex flex-col justify-between ${
+                          isCurrent
+                            ? 'bg-amber-50/40 dark:bg-amber-950/20 border-amber-500/40 shadow-sm ring-1 ring-amber-500/30'
+                            : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                                isCurrent
+                                  ? 'bg-amber-500 text-white shadow-sm'
+                                  : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+                              }`}>
+                                <Home className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                                  {m.household.installation_name || m.household.name}
+                                </h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1 mt-0.5">
+                                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                                  {m.household.location || 'Colombia'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                isOwner
+                                  ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700/60'
+                                  : 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                              }`}>
+                                {isOwner ? '👑 Propietario' : 'Miembro'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-4 text-xs text-slate-600 dark:text-slate-400 py-2 border-y border-slate-200/60 dark:border-slate-800/80 mb-4">
+                            <span className="flex items-center gap-1">
+                              <Sun className="w-3.5 h-3.5 text-amber-500" />
+                              {cap > 0 ? `${cap} kWp Solar` : 'Solo Red'}
+                            </span>
+                            {m.household.invite_code && isOwner && (
+                              <span className="flex items-center gap-1 font-mono text-[11px] text-slate-500">
+                                Código: {m.household.invite_code}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 pt-2">
+                          {isCurrent ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                              <CheckCircle2 className="w-4 h-4" /> Activo Actualmente
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSwitchHousehold(m.household_id)}
+                              disabled={isSwitching === m.household_id}
+                              className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm"
+                            >
+                              {isSwitching === m.household_id ? (
+                                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              ) : (
+                                <ArrowRightLeft className="w-3.5 h-3.5" />
+                              )}
+                              Cambiar a este Hogar
+                            </button>
+                          )}
+
+                          <div>
+                            {isOwner ? (
+                              <button
+                                onClick={() => {
+                                  setDeleteConfirmId(m.household_id);
+                                  setDeleteConfirmName(m.household.installation_name || m.household.name);
+                                }}
+                                title="Eliminar este hogar de forma permanente"
+                                className="px-3 py-2 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors flex items-center gap-1.5"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Eliminar</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setLeaveConfirmId(m.household_id);
+                                  setLeaveConfirmName(m.household.installation_name || m.household.name);
+                                }}
+                                title="Salir de este hogar"
+                                className="px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition-colors flex items-center gap-1.5"
+                              >
+                                <LogOut className="w-3.5 h-3.5" />
+                                <span>Salir</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Section to Join Another Household */}
+                <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1.5 flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-blue-500" /> Unirse a otra Vivienda con Código de Invitación
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+                    ¿Tienes el código de invitación de otra instalación o vivienda familiar? Ingrésalo aquí para vincular tu cuenta inmediatamente y alternar entre ellas cuando quieras.
+                  </p>
+
+                  <form onSubmit={handleJoinHouseholdSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md">
+                    <input
+                      type="text"
+                      placeholder="Ej. 8B741183"
+                      value={joinCodeInput}
+                      onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
+                      className="flex-1 px-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono uppercase font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    />
+                    <button
+                      type="submit"
+                      disabled={joinLoading || !joinCodeInput.trim()}
+                      className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-sm shrink-0"
+                    >
+                      {joinLoading ? 'Vinculando...' : 'Unirme a este Hogar'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ════════════ TAB 1: DATOS DEL HOGAR ════════════ */}
           {activeTab === 'datos' && (
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm">
@@ -947,6 +1252,88 @@ export function ConfiguracionClient({
           capacity_kwp: household.capacity_kwp,
         }}
       />
+
+      {/* Delete Household Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800/60 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
+            <div className="flex items-center gap-3 text-red-600 dark:text-red-400 mb-4">
+              <div className="p-3 rounded-2xl bg-red-100 dark:bg-red-950/60">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white">¿Eliminar este hogar?</h3>
+                <p className="text-xs text-red-600 dark:text-red-400 font-semibold">Acción destructiva e irreversible</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
+              Estás a punto de eliminar permanentemente <span className="font-bold text-slate-900 dark:text-white">{deleteConfirmName}</span>. Se borrarán todas las lecturas de telemetría de energía, alertas del sistema y miembros vinculados a esta instalación.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={isDeleting !== null}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteHousehold}
+                disabled={isDeleting !== null}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white flex items-center gap-2 shadow-sm transition-colors"
+              >
+                {isDeleting ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                {isDeleting ? 'Eliminando...' : 'Sí, Eliminar Hogar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Leave Household Confirmation Modal */}
+      {leaveConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400 mb-4">
+              <div className="p-3 rounded-2xl bg-amber-100 dark:bg-amber-950/60">
+                <LogOut className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-slate-900 dark:text-white">¿Salir de este hogar?</h3>
+                <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold">Desvinculación de cuenta</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed mb-6">
+              ¿Deseas desvincular tu cuenta de <span className="font-bold text-slate-900 dark:text-white">{leaveConfirmName}</span>? Ya no podrás ver sus mediciones de consumo ni alertas a menos que el propietario te vuelva a compartir el código de invitación.
+            </p>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setLeaveConfirmId(null)}
+                disabled={isLeaving !== null}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleLeaveHousehold}
+                disabled={isLeaving !== null}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-2 shadow-sm transition-colors"
+              >
+                {isLeaving ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <LogOut className="w-3.5 h-3.5" />}
+                {isLeaving ? 'Saliendo...' : 'Sí, Salir del Hogar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

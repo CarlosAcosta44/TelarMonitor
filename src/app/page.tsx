@@ -5,6 +5,7 @@ import { GetSolarGeneration } from "@/application/use-cases/GetSolarGeneration";
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
 import { GetDailySummary } from "@/application/use-cases/GetDailySummary";
 import { createClient } from "@/infrastructure/supabase/server";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
 
 import { ConsumptionCard } from "@/components/ConsumptionCard";
 import { SolarCard } from "@/components/SolarCard";
@@ -61,16 +62,11 @@ export default async function DashboardPage({
   let household: any = null;
 
   if (user) {
-    const { data: memberRows } = await supabase
-      .from('household_members')
-      .select('household_id, households (*)')
-      .eq('user_id', user.id)
-      .limit(1);
-
-    if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
+    const { activeHousehold } = await getActiveHousehold(supabase, user.id);
+    if (!activeHousehold) {
       return <HouseholdOnboarding userEmail={user.email} notice={notice} />;
     }
-    household = memberRows[0]?.households;
+    household = activeHousehold;
   }
 
   if (!household) {
@@ -155,7 +151,7 @@ export default async function DashboardPage({
     addData(historySolar, 'solar');
 
     // Convert map to array and format label
-    chartData = Array.from(dailyData.entries()).map(([dayKey, values]) => {
+    const allDays = Array.from(dailyData.entries()).map(([dayKey, values]) => {
       const date = new Date(dayKey + 'T12:00:00Z');
       let labelFormat: Intl.DateTimeFormatOptions = { weekday: "short" };
       if (range === '30d') labelFormat = { day: "2-digit", month: "short" };
@@ -166,6 +162,14 @@ export default async function DashboardPage({
         solar: Number(values.solar.toFixed(2)),
       };
     });
+
+    if (range === '7d') {
+      chartData = allDays.slice(-7);
+    } else if (range === '30d') {
+      chartData = allDays.slice(-30);
+    } else {
+      chartData = allDays;
+    }
   }
 
   return (

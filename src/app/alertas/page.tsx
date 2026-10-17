@@ -2,6 +2,7 @@ import { SupabaseEnergyReadingRepository } from "@/infrastructure/supabase/Supab
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
 import { AlertasClient } from "@/components/AlertasClient";
 import { createClient } from "@/infrastructure/supabase/server";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
 import { getHouseholdAlertsAction } from "./actions";
 import { redirect } from "next/navigation";
 
@@ -16,18 +17,14 @@ export default async function AlertasPage() {
     redirect('/login');
   }
 
-  const { data: memberRows } = await supabase
-    .from('household_members')
-    .select('household_id, households (*)')
-    .eq('user_id', user.id)
-    .limit(1);
+  const { activeHousehold } = await getActiveHousehold(supabase, user.id);
 
-  if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
+  if (!activeHousehold) {
     redirect('/?notice=sin_hogar');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const h: any = memberRows[0].households;
+  const h: any = activeHousehold;
   const householdId = h.id;
   const householdName = h.name || h.installation_name;
   const capacityKwp = Number(h.capacity_kwp) || 0;

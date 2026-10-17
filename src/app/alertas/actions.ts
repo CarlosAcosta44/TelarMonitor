@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from "@/infrastructure/supabase/server";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
 import { revalidatePath } from "next/cache";
 
 export interface SystemAlertRecord {
@@ -29,13 +30,9 @@ export async function getHouseholdAlertsAction(householdId?: string): Promise<{
     if (!targetHouseholdId) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: members } = await supabase
-          .from('household_members')
-          .select('household_id')
-          .eq('user_id', user.id)
-          .limit(1);
-        if (members && members.length > 0) {
-          targetHouseholdId = members[0].household_id;
+        const { activeHousehold } = await getActiveHousehold(supabase, user.id);
+        if (activeHousehold) {
+          targetHouseholdId = activeHousehold.id;
         }
       }
     }
@@ -212,13 +209,9 @@ export async function evaluateTelemetryAlertsAction(householdId?: string): Promi
     if (!targetHouseholdId) {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: members } = await supabase
-          .from('household_members')
-          .select('household_id')
-          .eq('user_id', user.id)
-          .limit(1);
-        if (members && members.length > 0) {
-          targetHouseholdId = members[0].household_id;
+        const { activeHousehold } = await getActiveHousehold(supabase, user.id);
+        if (activeHousehold) {
+          targetHouseholdId = activeHousehold.id;
         }
       }
     }

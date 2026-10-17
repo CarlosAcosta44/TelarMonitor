@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import { ExportButton } from "@/components/ExportButton";
 import { createClient } from "@/infrastructure/supabase/server";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
 import { redirect } from "next/navigation";
 
 export const revalidate = 60;
@@ -26,18 +27,14 @@ export default async function HistoricoPage({
     redirect('/login');
   }
 
-  const { data: memberRows } = await supabase
-    .from('household_members')
-    .select('household_id, households (*)')
-    .eq('user_id', user.id)
-    .limit(1);
+  const { activeHousehold } = await getActiveHousehold(supabase, user.id);
 
-  if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
+  if (!activeHousehold) {
     redirect('/?notice=sin_hogar');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const household: any = memberRows[0].households;
+  const household: any = activeHousehold;
   const capacityKwp = Number(household?.capacity_kwp) || 0;
   const hasSolar = capacityKwp > 0;
 

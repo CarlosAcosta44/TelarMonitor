@@ -2,6 +2,7 @@ import { SupabaseEnergyReadingRepository } from "@/infrastructure/supabase/Supab
 import { AhorroChart } from "@/components/AhorroChart";
 import { Leaf, Calendar, TrendingUp, Sun, Banknote, CloudLightning } from "lucide-react";
 import { createClient } from "@/infrastructure/supabase/server";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
 import { redirect } from "next/navigation";
 
 export const revalidate = 60;
@@ -15,18 +16,14 @@ export default async function AhorroPage() {
     redirect('/login');
   }
 
-  const { data: memberRows } = await supabase
-    .from('household_members')
-    .select('household_id, households (*)')
-    .eq('user_id', user.id)
-    .limit(1);
+  const { activeHousehold } = await getActiveHousehold(supabase, user.id);
 
-  if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
+  if (!activeHousehold) {
     redirect('/?notice=sin_hogar');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const household: any = memberRows[0].households;
+  const household: any = activeHousehold;
   const installationName = household?.installation_name || household?.name || 'Tu Instalación Solar';
   const TARIFA = Number(household?.energy_rate_cop_per_kwh) || 950;
   const EXPORT_RATE = Number(household?.export_rate) || 650;

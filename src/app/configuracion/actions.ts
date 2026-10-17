@@ -2,6 +2,7 @@
 
 import { createClient } from "@/infrastructure/supabase/server";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import crypto from "crypto";
 
 export async function updateSettings(formData: FormData) {
@@ -99,6 +100,13 @@ export async function joinHousehold(formData: FormData) {
     return { success: false, error: 'Ingresa un código de invitación válido' };
   }
 
+  // Find target household name
+  const { data: targetH } = await supabase
+    .from('households')
+    .select('id, name')
+    .eq('invite_code', inviteCode)
+    .single();
+
   const { error } = await supabase.rpc('join_household_by_code', {
     p_invite_code: inviteCode
   });
@@ -107,11 +115,22 @@ export async function joinHousehold(formData: FormData) {
     return { success: false, error: error.message };
   }
 
+  // Activate joined household
+  if (targetH?.id) {
+    const cookieStore = await cookies();
+    cookieStore.set('telar_active_household_id', targetH.id, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax',
+    });
+  }
+
   revalidatePath('/configuracion');
   revalidatePath('/');
   revalidatePath('/ahorro');
   revalidatePath('/historico');
-  return { success: true, message: '¡Te has unido exitosamente al hogar!' };
+  revalidatePath('/alertas');
+  return { success: true, message: `¡Te has unido exitosamente a ${targetH?.name || 'este hogar'}!` };
 }
 
 export async function updatePassword(formData: FormData) {
@@ -229,4 +248,135 @@ export async function createHouseholdAction(formData: FormData) {
   revalidatePath('/historico');
   revalidatePath('/ahorro');
   return { success: true, message: '¡Hogar creado exitosamente!', household_id: household.id };
+}
+
+export async function switchHouseholdAction(householdId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'No autenticado' };
+  }
+
+  // Verify membership
+  const { data: member } = await supabase
+    .from('household_members')
+    .select('id')
+    .eq('household_id', householdId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (!member) {
+    return { success: false, error: 'No perteneces a este hogar' };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set('telar_active_household_id', householdId, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+  });
+
+  revalidatePath('/');
+  revalidatePath('/configuracion');
+  revalidatePath('/historico');
+  revalidatePath('/ahorro');
+  revalidatePath('/alertas');
+
+  return { success: true };
+}
+
+export async function leaveHouseholdAction(householdId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'No autenticado' };
+  }
+
+  // Check role
+  const { data: member } = await supabase
+    .from('household_members')
+    .select('role')
+    .eq('household_id', householdId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (!member) {
+    return { success: false, error: 'No perteneces a este hogar' };
+  }
+
+  if (member.role === 'owner') {
+    return { success: false, error: 'Como propietario no puedes abandonar el hogar. Puedes eliminarlo o transferirlo.' };
+  }
+
+  const { error: delError } = await supabase
+    .from('household_members')
+    .delete()
+    .eq('household_id', householdId)
+    .eq('user_id', user.id);
+
+  if (delError) {
+    return { success: false, error: delError.message };
+  }
+
+  // Clear or reset cookie
+  const cookieStore = await cookies();
+  if (cookieStore.get('telar_active_household_id')?.value === householdId) {
+    cookieStore.delete('telar_active_household_id');
+  }
+
+  revalidatePath('/');
+  revalidatePath('/configuracion');
+  revalidatePath('/historico');
+  revalidatePath('/ahorro');
+  revalidatePath('/alertas');
+
+  return { success: true, message: 'Has salido del hogar exitosamente.' };
+}
+
+export async function deleteHouseholdAction(householdId: string) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: 'No autenticado' };
+  }
+
+  // Check role
+  const { data: member } = await supabase
+    .from('household_members')
+    .select('role')
+    .eq('household_id', householdId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (!member || member.role !== 'owner') {
+    return { success: false, error: 'Solo el propietario (owner) puede eliminar este hogar' };
+  }
+
+  // Delete dependencies in order
+  await supabase.from('energy_readings').delete().eq('household_id', householdId);
+  await supabase.from('system_alerts').delete().eq('household_id', householdId);
+  await supabase.from('household_members').delete().eq('household_id', householdId);
+
+  const { error: hDelError } = await supabase
+    .from('households')
+    .delete()
+    .eq('id', householdId);
+
+  if (hDelError) {
+    return { success: false, error: hDelError.message };
+  }
+
+  // Clear cookie
+  const cookieStore = await cookies();
+  if (cookieStore.get('telar_active_household_id')?.value === householdId) {
+    cookieStore.delete('telar_active_household_id');
+  }
+
+  revalidatePath('/');
+  revalidatePath('/configuracion');
+  revalidatePath('/historico');
+  revalidatePath('/ahorro');
+  revalidatePath('/alertas');
+
+  return { success: true, message: 'Hogar eliminado exitosamente.' };
 }
