@@ -69,11 +69,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: mError.message }, { status: 500 });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: '¡Hogar creado exitosamente!',
       household_id: household.id
     });
+
+    response.cookies.set('telar_active_household_id', household.id, {
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: 'lax'
+    });
+
+    return response;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error interno al procesar la solicitud';
     console.error('API household/create error:', err);

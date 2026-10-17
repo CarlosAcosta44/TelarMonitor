@@ -15,17 +15,25 @@ import {
   ShieldCheck, 
   ShieldAlert,
   Sparkles,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import { joinHousehold } from '@/app/configuracion/actions';
 
 interface HouseholdOnboardingProps {
   userEmail?: string;
   notice?: string;
+  initialMode?: 'choose' | 'create' | 'join';
+  showCancel?: boolean;
 }
 
-export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingProps) {
-  const [mode, setMode] = useState<'choose' | 'create' | 'join' | 'pairing'>('choose');
+export function HouseholdOnboarding({ 
+  userEmail, 
+  notice, 
+  initialMode = 'choose', 
+  showCancel = false 
+}: HouseholdOnboardingProps) {
+  const [mode, setMode] = useState<'choose' | 'create' | 'join' | 'pairing'>(initialMode);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dismissedNotice, setDismissedNotice] = useState(false);
@@ -132,6 +140,18 @@ export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingPr
   return (
     <div className="min-h-[75vh] flex flex-col items-center justify-center py-10 px-4">
       <div className="max-w-2xl w-full">
+        {showCancel && (
+          <div className="mb-4">
+            <a
+              href="/configuracion"
+              className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Cancelar y volver a Ajustes
+            </a>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 mb-4 shadow-sm">
@@ -234,10 +254,17 @@ export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingPr
                 </div>
               </div>
               <button 
-                onClick={() => setMode('choose')}
+                type="button"
+                onClick={() => {
+                  if (initialMode === 'create' && showCancel) {
+                    window.location.href = '/configuracion';
+                  } else {
+                    setMode('choose');
+                  }
+                }}
                 className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               >
-                Volver
+                {initialMode === 'create' && showCancel ? 'Cancelar' : 'Volver'}
               </button>
             </div>
 

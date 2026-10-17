@@ -157,6 +157,21 @@ $$;
 
 COMMENT ON FUNCTION public.get_user_household_ids IS 'Retorna los household_id accesibles para un usuario de forma segura y optimizada.';
 
+CREATE OR REPLACE FUNCTION public.is_household_owner(p_household_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.household_members
+    WHERE household_id = p_household_id AND user_id = p_user_id AND role = 'owner'
+  );
+$$;
+
+COMMENT ON FUNCTION public.is_household_owner IS 'Verifica si un usuario posee el rol de propietario (owner) en un hogar determinado.';
+
 
 -- ==============================================================================
 -- 7. PROCEDIMIENTO RPC: UNIRSE A UN HOGAR POR CÓDIGO (join_household_by_code)
@@ -276,6 +291,7 @@ ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "rls_households_select" ON public.households;
 DROP POLICY IF EXISTS "rls_households_update" ON public.households;
 DROP POLICY IF EXISTS "rls_households_insert" ON public.households;
+DROP POLICY IF EXISTS "rls_households_delete" ON public.households;
 
 CREATE POLICY "rls_households_select" ON public.households
   FOR SELECT TO authenticated, anon
@@ -298,6 +314,12 @@ CREATE POLICY "rls_households_update" ON public.households
 CREATE POLICY "rls_households_insert" ON public.households
   FOR INSERT TO authenticated
   WITH CHECK (true);
+
+CREATE POLICY "rls_households_delete" ON public.households
+  FOR DELETE TO authenticated
+  USING (
+    public.is_household_owner(id, auth.uid())
+  );
 
 -- ── 9.2 HOUSEHOLD_MEMBERS ──
 ALTER TABLE public.household_members ENABLE ROW LEVEL SECURITY;
@@ -322,7 +344,10 @@ CREATE POLICY "rls_members_update" ON public.household_members
 
 CREATE POLICY "rls_members_delete" ON public.household_members
   FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
+  USING (
+    user_id = auth.uid() 
+    OR public.is_household_owner(household_id, auth.uid())
+  );
 
 -- ── 9.3 HOUSEHOLD_INVITATIONS ──
 ALTER TABLE public.household_invitations ENABLE ROW LEVEL SECURITY;

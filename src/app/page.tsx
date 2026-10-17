@@ -63,8 +63,15 @@ export default async function DashboardPage({
 
   if (user) {
     const { activeHousehold } = await getActiveHousehold(supabase, user.id);
-    if (!activeHousehold) {
-      return <HouseholdOnboarding userEmail={user.email} notice={notice} />;
+    if (!activeHousehold || resolvedParams.action === 'create_household') {
+      return (
+        <HouseholdOnboarding 
+          userEmail={user.email} 
+          notice={notice} 
+          initialMode={resolvedParams.action === 'create_household' ? 'create' : 'choose'}
+          showCancel={!!activeHousehold}
+        />
+      );
     }
     household = activeHousehold;
   }
