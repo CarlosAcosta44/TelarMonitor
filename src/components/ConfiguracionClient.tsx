@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Settings, 
   Save, 
@@ -34,7 +34,10 @@ import {
   LogOut,
   ArrowRightLeft,
   AlertTriangle,
-  Plus
+  Plus,
+  Loader2,
+  Sparkles,
+  ArrowRight
 } from "lucide-react";
 import { SimulatorControlModal } from "@/components/SimulatorControlModal";
 
@@ -156,12 +159,49 @@ export function ConfiguracionClient({
 
   // Create Household Modal State
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createModalStage, setCreateModalStage] = useState<'form' | 'pairing'>('form');
+  const [createPairingStep, setCreatePairingStep] = useState<1 | 2 | 3 | 4>(1);
+  const [newlyCreatedHouseholdId, setNewlyCreatedHouseholdId] = useState<string | null>(null);
   const [createName, setCreateName] = useState('');
   const [createLocation, setCreateLocation] = useState('');
   const [createCapacity, setCreateCapacity] = useState('4.2');
   const [createHasSolar, setCreateHasSolar] = useState(true);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  // Automated Hardware Pairing Sequence for Modal
+  useEffect(() => {
+    if (!isCreateModalOpen || createModalStage !== 'pairing') return;
+
+    // Step 1 -> Step 2 after 1.8s
+    const timer1 = setTimeout(() => {
+      setCreatePairingStep(2);
+    }, 1800);
+
+    // Step 2 -> Step 3 after 3.6s
+    const timer2 = setTimeout(() => {
+      setCreatePairingStep(3);
+      // Seed initial 1-day telemetry in background via REST API
+      if (newlyCreatedHouseholdId) {
+        fetch('/api/simulate/seed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days: 1, householdId: newlyCreatedHouseholdId })
+        }).catch(err => console.warn('Sembrado diferido:', err));
+      }
+    }, 3600);
+
+    // Step 3 -> Step 4 (Complete) after 5.4s
+    const timer3 = setTimeout(() => {
+      setCreatePairingStep(4);
+    }, 5400);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, [isCreateModalOpen, createModalStage, newlyCreatedHouseholdId]);
 
   const handleCreateHousehold = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,15 +228,10 @@ export function ConfiguracionClient({
         setCreateError(data.error || 'Error al crear el hogar');
         setCreateLoading(false);
       } else {
-        if (data.household_id) {
-          fetch('/api/simulate/seed', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ days: 1, householdId: data.household_id })
-          }).catch(err => console.warn('Sembrado diferido:', err));
-        }
-
-        window.location.reload();
+        setNewlyCreatedHouseholdId(data.household_id || null);
+        setCreateLoading(false);
+        setCreatePairingStep(1);
+        setCreateModalStage('pairing');
       }
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : 'Error al conectar con el servidor');
@@ -522,6 +557,9 @@ export function ConfiguracionClient({
                         setCreateLocation('');
                         setCreateCapacity('4.2');
                         setCreateHasSolar(true);
+                        setCreateModalStage('form');
+                        setCreatePairingStep(1);
+                        setNewlyCreatedHouseholdId(null);
                         setIsCreateModalOpen(true);
                       }}
                       className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-colors shadow-sm"
@@ -1396,124 +1434,322 @@ export function ConfiguracionClient({
       {/* Create Household Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                  <Home className="w-5 h-5" />
+          <div className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 w-full shadow-2xl relative transition-all ${
+            createModalStage === 'pairing' ? 'max-w-xl' : 'max-w-md'
+          }`}>
+            
+            {createModalStage === 'form' ? (
+              <>
+                <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                      <Home className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-white">Crear Nuevo Hogar</h3>
+                      <p className="text-xs text-slate-500">Configura una nueva vivienda o instalación</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateModalOpen(false)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:bg-slate-800 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-                <div>
-                  <h3 className="font-bold text-slate-900 dark:text-white">Crear Nuevo Hogar</h3>
-                  <p className="text-xs text-slate-500">Configura una nueva vivienda o instalación</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {createError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{createError}</span>
+                {createError && (
+                  <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{createError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleCreateHousehold} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Nombre del Hogar o Instalación *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ej. Casa Campestre, Apto 502"
+                      value={createName}
+                      onChange={(e) => setCreateName(e.target.value)}
+                      className="w-full px-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-slate-900 dark:text-white transition-all"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Ubicación (Ciudad / Región)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Bogotá, Cundinamarca"
+                        value={createLocation}
+                        onChange={(e) => setCreateLocation(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-slate-900 dark:text-white transition-all"
+                      />
+                      <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={createHasSolar}
+                        onChange={(e) => setCreateHasSolar(e.target.checked)}
+                        className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 cursor-pointer"
+                      />
+                      <div className="text-xs">
+                        <p className="font-bold text-slate-900 dark:text-white">Tiene paneles solares fotovoltaicos</p>
+                        <p className="text-slate-500">Habilita medición y telemetría solar</p>
+                      </div>
+                    </label>
+                  </div>
+
+                  {createHasSolar && (
+                    <div className="animate-fade-in">
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        Capacidad Pico Instalada (kWp)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.5"
+                          value={createCapacity}
+                          onChange={(e) => setCreateCapacity(e.target.value)}
+                          className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-slate-900 dark:text-white transition-all"
+                        />
+                        <Sun className="w-4 h-4 text-amber-500 absolute left-3 top-3" />
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Promedio residencial: entre 3.0 kWp y 6.0 kWp
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreateModalOpen(false)}
+                      disabled={createLoading}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={createLoading}
+                      className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-2 shadow-sm transition-colors"
+                    >
+                      {createLoading ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <Plus className="w-3.5 h-3.5" />
+                      )}
+                      {createLoading ? 'Creando Hogar...' : 'Crear Hogar'}
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              /* Pairing Stage with Sensor Simulation & Telemetry Seeding */
+              <div className="animate-fade-in">
+                {/* Header */}
+                <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
+                      <Cpu className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 dark:text-white">
+                        Vinculando Dispositivos IoT Telar
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Sincronizando sensores para <span className="font-bold text-amber-600">{createName}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 rounded-full text-xs font-bold">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                    <span>Paso {createPairingStep} de 4</span>
+                  </div>
+                </div>
+
+                {/* Steps List */}
+                <div className="space-y-3 mb-6">
+                  {/* Step 1: Energy Meter (ESP32 CT Clamp) */}
+                  <div className={`p-3.5 rounded-2xl border transition-all ${
+                    createPairingStep >= 1 
+                      ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700' 
+                      : 'bg-slate-50/30 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 opacity-60'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          createPairingStep > 1 
+                            ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400' 
+                            : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
+                        }`}>
+                          <Radio className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            Medidor Telar IoT (ESP32 / Sensor CT)
+                            <span className="text-[10px] font-mono font-normal text-slate-400">TELAR-MTR-8B</span>
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Sensor de pinza CT para consumo total de la red eléctrica (60Hz, 120V/240V).
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        {createPairingStep === 1 ? (
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Conectando...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 shrink-0">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Vinculado
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Solar Inverter or Grid Profile */}
+                  <div className={`p-3.5 rounded-2xl border transition-all ${
+                    createPairingStep >= 2 
+                      ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700' 
+                      : 'bg-slate-50/30 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 opacity-60'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          createHasSolar
+                            ? createPairingStep > 2
+                              ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400'
+                            : 'bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400'
+                        }`}>
+                          {createHasSolar ? <Sun className="w-4 h-4" /> : <Home className="w-4 h-4" />}
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            {createHasSolar ? `Inversor Solar Fotovoltaico (${createCapacity} kWp)` : 'Modo Monitoreo Exclusivo de Red'}
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            {createHasSolar 
+                              ? 'Sincronizando bus Modbus/RS485 para generación solar e inyección.' 
+                              : 'Instalación configurada para medición de red eléctrica sin paneles.'}
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        {createPairingStep < 2 ? (
+                          <span className="text-[11px] text-slate-400 font-semibold shrink-0">En espera</span>
+                        ) : createPairingStep === 2 ? (
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> {createHasSolar ? 'Sincronizando...' : 'Configurando...'}
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 shrink-0">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> {createHasSolar ? 'Sincronizado' : 'Configurado'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Telemetry Calibration and Seeding */}
+                  <div className={`p-3.5 rounded-2xl border transition-all ${
+                    createPairingStep >= 3 
+                      ? 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700' 
+                      : 'bg-slate-50/30 dark:bg-slate-900/40 border-slate-100 dark:border-slate-800 opacity-60'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          createPairingStep === 4 
+                            ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400' 
+                            : 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400'
+                        }`}>
+                          <Zap className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                            Calibración y Telemetría Inicial
+                          </h4>
+                          <p className="text-[11px] text-slate-500">
+                            Generando historial de 24 horas para visualización inmediata en gráficos.
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        {createPairingStep < 3 ? (
+                          <span className="text-[11px] text-slate-400 font-semibold shrink-0">En espera</span>
+                        ) : createPairingStep === 3 ? (
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-purple-600 dark:text-purple-400 shrink-0">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Calibrando...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800 shrink-0">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Listo
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Final Action */}
+                {createPairingStep === 4 ? (
+                  <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+                    <div className="flex items-center gap-3">
+                      <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <div>
+                        <h4 className="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                          ¡Hogar configurado y vinculado exitosamente!
+                        </h4>
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+                          Telemetría inicial generada. Ya puedes ver sus mediciones en tiempo real.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="flex-1 sm:flex-none px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        Ver en Mis Hogares
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { window.location.href = '/'; }}
+                        className="flex-1 sm:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Ir al Dashboard</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-xs text-slate-500 py-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                    <span>Estableciendo enlace seguro TLS y calibrando sensores...</span>
+                  </div>
+                )}
               </div>
             )}
 
-            <form onSubmit={handleCreateHousehold} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Nombre del Hogar o Instalación *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ej. Casa Campestre, Apto 502"
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  className="w-full px-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-slate-900 dark:text-white transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                  Ubicación (Ciudad / Región)
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Bogotá, Cundinamarca"
-                    value={createLocation}
-                    onChange={(e) => setCreateLocation(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-slate-900 dark:text-white transition-all"
-                  />
-                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <label className="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={createHasSolar}
-                    onChange={(e) => setCreateHasSolar(e.target.checked)}
-                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-400 accent-amber-500 cursor-pointer"
-                  />
-                  <div className="text-xs">
-                    <p className="font-bold text-slate-900 dark:text-white">Tiene paneles solares fotovoltaicos</p>
-                    <p className="text-slate-500">Habilita medición y telemetría solar</p>
-                  </div>
-                </label>
-              </div>
-
-              {createHasSolar && (
-                <div className="animate-fade-in">
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Capacidad Pico Instalada (kWp)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.5"
-                      value={createCapacity}
-                      onChange={(e) => setCreateCapacity(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-slate-900 dark:text-white transition-all"
-                    />
-                    <Sun className="w-4 h-4 text-amber-500 absolute left-3 top-3" />
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Promedio residencial: entre 3.0 kWp y 6.0 kWp
-                  </p>
-                </div>
-              )}
-
-              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  disabled={createLoading}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={createLoading}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-2 shadow-sm transition-colors"
-                >
-                  {createLoading ? (
-                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <Plus className="w-3.5 h-3.5" />
-                  )}
-                  {createLoading ? 'Creando Hogar...' : 'Crear Hogar'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
