@@ -34,19 +34,21 @@ export class SimulationService {
 
   /**
    * Generates a single reading tick (both types) based on the current time.
-   * Called by the /api/simulate/reading endpoint.
+   * Called by the /api/simulate/reading endpoint or the simulator modal.
    */
-  async generateTick() {
+  async generateTick(targetHouseholdId?: string) {
     const hour = new Date().getHours();
     const [min, max] = CONSUMPTION_BASE[hour];
     const consumptionKwh = randomBetween(min, max);
 
-    const { data: household } = await supabase
-      .from('households')
-      .select('id, capacity_kwp')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    let query = supabase.from('households').select('id, capacity_kwp');
+    if (targetHouseholdId) {
+      query = query.eq('id', targetHouseholdId);
+    } else {
+      query = query.order('created_at', { ascending: false }).limit(1);
+    }
+
+    const { data: household } = await query.single();
     
     const householdId = household?.id;
     const capacityKwp = Number(household?.capacity_kwp) || 0;

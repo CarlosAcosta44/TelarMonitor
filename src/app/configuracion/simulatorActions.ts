@@ -104,13 +104,13 @@ export async function seedHistoricalAction(params: {
 /**
  * Dispara un pulso telemétrico instantáneo (tick de prueba).
  */
-export async function triggerPulseAction() {
+export async function triggerPulseAction(params?: { householdId?: string }) {
   try {
     const supabase = await createClient();
     const repo = new SupabaseEnergyReadingRepository(supabase);
     const service = new SimulationService(repo);
 
-    const result = await service.generateTick();
+    const result = await service.generateTick(params?.householdId);
 
     revalidatePath('/');
     revalidatePath('/historico');

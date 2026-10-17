@@ -128,7 +128,7 @@ export function SimulatorControlModal({ isOpen, onClose, household }: SimulatorC
     setIsPulsing(true);
     setFeedback(null);
     try {
-      const res = await triggerPulseAction();
+      const res = await triggerPulseAction({ householdId: household.id });
       if (res.success) {
         setFeedback({
           type: 'success',
