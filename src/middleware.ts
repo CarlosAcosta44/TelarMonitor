@@ -35,7 +35,10 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Define public routes that don't require authentication
-  const isPublicRoute = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/api/telemetry')
+  const isPublicRoute = 
+    request.nextUrl.pathname.startsWith('/login') || 
+    request.nextUrl.pathname.startsWith('/registro') || 
+    request.nextUrl.pathname.startsWith('/api/telemetry')
   
   if (!user && !isPublicRoute) {
     // no user, potentially respond by redirecting the user to the login page
@@ -44,8 +47,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // If user is logged in and tries to access /login, redirect to dashboard
-  if (user && request.nextUrl.pathname.startsWith('/login')) {
+  // If user is logged in and tries to access /login or /registro, redirect to dashboard
+  if (user && (request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/registro'))) {
     const url = request.nextUrl.clone()
     url.pathname = '/'
     return NextResponse.redirect(url)

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { createClient } from '@/infrastructure/supabase/browser';
 import { Zap, AlertCircle } from 'lucide-react';
 
@@ -112,12 +113,12 @@ export default function LoginPage() {
           <div className="mt-6 pt-6 border-t border-slate-800 text-center">
             <p className="text-xs text-slate-400">
               ¿No tienes una cuenta aún?{' '}
-              <a 
+              <Link 
                 href="/registro" 
                 className="font-bold text-amber-400 hover:text-amber-300 transition-colors hover:underline"
               >
                 Regístrate aquí
-              </a>
+              </Link>
             </p>
           </div>
         </div>

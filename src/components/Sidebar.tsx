@@ -18,14 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { AccountProfileModal } from '@/components/AccountProfileModal';
-
-const navItems = [
-  { name: 'Dashboard Principal', href: '/', icon: LayoutDashboard },
-  { name: 'Histórico y Tendencias', href: '/historico', icon: TrendingUp },
-  { name: 'Comparativa y Ahorro', href: '/ahorro', icon: PiggyBank },
-  { name: 'Alertas del Sistema', href: '/alertas', icon: BellRing, badge: 1 },
-  { name: 'Configuración Hogar', href: '/configuracion', icon: Settings },
-];
+import { getHouseholdAlertsAction } from '@/app/alertas/actions';
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -41,6 +34,31 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
   const [userName, setUserName] = React.useState<string>('Familia Propietaria');
   const [userRole, setUserRole] = React.useState<string>('owner');
   const [isAccountModalOpen, setIsAccountModalOpen] = React.useState<boolean>(false);
+  const [alertsCount, setAlertsCount] = React.useState<number>(0);
+
+  // Dynamic alerts count loader
+  React.useEffect(() => {
+    async function loadAlertsCount() {
+      try {
+        const res = await getHouseholdAlertsAction();
+        if (res.success && res.alerts) {
+          const active = res.alerts.filter(a => !a.is_resolved).length;
+          setAlertsCount(active);
+        }
+      } catch (err) {
+        console.warn('Error loading alerts count in sidebar:', err);
+      }
+    }
+
+    loadAlertsCount();
+    const onAlertsUpdate = () => loadAlertsCount();
+    window.addEventListener('alerts-updated', onAlertsUpdate);
+    const interval = setInterval(loadAlertsCount, 30000);
+    return () => {
+      window.removeEventListener('alerts-updated', onAlertsUpdate);
+      clearInterval(interval);
+    };
+  }, [pathname]);
 
   React.useEffect(() => {
     // 1. Listen for immediate client-side updates (e.g. after saving in Settings)
@@ -116,6 +134,13 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
     router.refresh();
   };
 
+  const navItems = [
+    { name: 'Dashboard Principal', href: '/', icon: LayoutDashboard },
+    { name: 'Histórico y Tendencias', href: '/historico', icon: TrendingUp },
+    { name: 'Comparativa y Ahorro', href: '/ahorro', icon: PiggyBank },
+    { name: 'Alertas del Sistema', href: '/alertas', icon: BellRing, badge: alertsCount > 0 ? alertsCount : undefined },
+    { name: 'Configuración Hogar', href: '/configuracion', icon: Settings },
+  ];
 
   return (
     <>
