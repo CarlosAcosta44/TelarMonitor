@@ -311,8 +311,13 @@ export default async function DashboardPage({
 
         {/* ── Real-time cards (Row 2) ─── */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          <ConsumptionCard valueKwh={consumptionKwh} />
+          <ConsumptionCard 
+            valueKwh={consumptionKwh} 
+            totalKwh={dailySummary ? dailySummary.consumptionKwh : 11.9} 
+            hasSolar={hasSolar} 
+          />
           <SolarCard valueKwh={solarKwh} consumptionKwh={consumptionKwh} hasSolar={hasSolar} />
+
           <div className="md:col-span-2 xl:col-span-1 h-full">
             <BalanceIndicator consumptionKwh={consumptionKwh} solarKwh={solarKwh} hasSolar={hasSolar} />
           </div>

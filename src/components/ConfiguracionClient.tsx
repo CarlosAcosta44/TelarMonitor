@@ -406,8 +406,35 @@ export function ConfiguracionClient({
                   </div>
                 </div>
 
+                {/* Desglose de Módulos Solares (Retroalimentación Carlos) */}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Capacidad Instalada (kWp)</label>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Número de Módulos (Paneles)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Sun className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <input 
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={panelCount} 
+                      onChange={(e) => {
+                        const count = Math.max(0, parseInt(e.target.value) || 0);
+                        const calculated = ((count * 525) / 1000).toFixed(2);
+                        setFormData(prev => ({ ...prev, capacity_kwp: calculated }));
+                        setIsSaved(false);
+                      }}
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50" 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Capacidad Pico Total (kWp)
+                  </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Zap className="w-4 h-4 text-orange-400" />
@@ -415,7 +442,8 @@ export function ConfiguracionClient({
                     <input 
                       name="capacity_kwp" 
                       type="number"
-                      step="0.1"
+                      step="0.05"
+                      min="0"
                       value={formData.capacity_kwp} 
                       onChange={handleChange} 
                       className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50" 
@@ -455,19 +483,38 @@ export function ConfiguracionClient({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Tecnología de Paneles</label>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Especificación Física de Módulos
+                  </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Sun className="w-4 h-4 text-amber-500" />
                     </div>
                     <input 
                       readOnly
-                      value={`${panelCount} Módulos Monocristalino PERC (525W c/u)`} 
+                      value={numericCapacity > 0 ? `${panelCount} Módulos Monocristalinos Tier 1 (525W c/u)` : 'Sin paneles solares (Monitoreo exclusivo de red)'} 
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-default" 
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Potencia Unitaria por Panel
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Zap className="w-4 h-4 text-amber-500" />
+                    </div>
+                    <input 
+                      readOnly
+                      value="525 Watts pico (Wp) por módulo" 
                       className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-default" 
                     />
                   </div>
                 </div>
               </div>
+
 
               <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 rounded-2xl p-4 flex justify-between items-center">
                 <div className="flex gap-4 items-center">
