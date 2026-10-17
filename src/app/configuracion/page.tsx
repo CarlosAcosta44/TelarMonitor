@@ -1,6 +1,17 @@
 import { ConfiguracionClient } from "@/components/ConfiguracionClient";
 import { createClient } from "@/infrastructure/supabase/server";
-import { updateSettings, updatePassword, inviteHouseholdMember, joinHousehold } from "./actions";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
+import { 
+  updateSettings, 
+  updatePassword, 
+  inviteHouseholdMember, 
+  joinHousehold, 
+  switchHouseholdAction, 
+  leaveHouseholdAction, 
+  deleteHouseholdAction,
+  removeHouseholdMemberAction
+} from "./actions";
+import { redirect } from "next/navigation";
 
 export const revalidate = 0; // Don't cache settings page
 
@@ -9,46 +20,60 @@ export default async function ConfiguracionPage() {
 
   // 1. Get authenticated user
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
 
-  // 2. Fetch household data: first try through household_members if logged in
+  // 2. Fetch active household and all memberships through getActiveHousehold
+  const { activeHousehold, role, allMemberships } = await getActiveHousehold(supabase, user.id);
+
+  if (!activeHousehold) {
+    redirect('/?notice=sin_hogar');
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let household: any = null;
-  if (user) {
-    const { data: memberRows } = await supabase
+  const household: any = activeHousehold;
+
+  // 3. Fetch household members for current household (with profile info if available)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let rawMembers: any[] = [];
+  const { data: rpcMembers, error: rpcErr } = await supabase.rpc('get_household_members_with_profiles', {
+    p_household_id: household.id
+  });
+
+  if (!rpcErr && Array.isArray(rpcMembers)) {
+    rawMembers = rpcMembers;
+  } else {
+    const { data: directMembers } = await supabase
       .from('household_members')
-      .select('household_id, role, households (*)')
-      .eq('user_id', user.id)
-      .limit(1);
-
-    if (memberRows && memberRows.length > 0 && memberRows[0].households) {
-      household = memberRows[0].households;
-    }
-  }
-
-  // Fallback if not found through members (e.g. initial setup)
-  if (!household) {
-    const { data: households, error: hError } = await supabase
-      .from('households')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (hError) {
-      console.error('Error fetching household in configuracion/page.tsx:', hError);
-    }
-    household = households && households.length > 0 ? households[0] : null;
+      .eq('household_id', household.id);
+    rawMembers = directMembers || [];
   }
 
-  // 3. Fetch household members
-  const { data: members } = await supabase
-    .from('household_members')
-    .select('*')
-    .eq('household_id', household?.id || '');
+  // Format members ensuring the active user has their full profile and fallback formatting for others
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const safeMembers = rawMembers.map((m: any) => {
+    const isCurrent = m.user_id === user.id;
+    return {
+      id: m.id,
+      user_id: m.user_id,
+      role: m.role || 'viewer',
+      created_at: m.created_at || new Date().toISOString(),
+      name: isCurrent
+        ? (user.user_metadata?.full_name || (user.email ? user.email.split('@')[0] : 'Tú'))
+        : (m.user_name || m.name || null),
+      email: isCurrent
+        ? user.email
+        : (m.user_email || m.email || null)
+    };
+  });
 
-  // 4. Fetch last telemetry pulse from energy_readings
+  // 4. Fetch last telemetry pulse from energy_readings for this household
   const { data: lastReading } = await supabase
     .from('energy_readings')
     .select('recorded_at')
+    .eq('household_id', household.id)
     .order('recorded_at', { ascending: false })
     .limit(1)
     .single();
@@ -74,6 +99,20 @@ export default async function ConfiguracionPage() {
     invite_code: household?.invite_code || 'ACOSTA26',
   };
 
+  const safeMemberships = allMemberships.map(m => ({
+    id: m.id,
+    household_id: m.household_id,
+    role: m.role,
+    household: {
+      id: m.household.id,
+      name: m.household.name,
+      installation_name: m.household.installation_name || m.household.name,
+      location: m.household.location || 'Colombia',
+      capacity_kwp: String(m.household.capacity_kwp ?? '0'),
+      invite_code: m.household.invite_code,
+    }
+  }));
+
   const safeUser = {
     id: user?.id || 'usr-local-owner',
     email: user?.email || 'admin@telar.co',
@@ -85,12 +124,18 @@ export default async function ConfiguracionPage() {
     <ConfiguracionClient
       household={safeHousehold}
       user={safeUser}
-      members={members || []}
+      members={safeMembers}
+      userRole={role || 'viewer'}
+      allMemberships={safeMemberships}
       lastTelemetryTimestamp={lastReading?.recorded_at || null}
       updateSettingsAction={updateSettings}
       updatePasswordAction={updatePassword}
       inviteMemberAction={inviteHouseholdMember}
       joinHouseholdAction={joinHousehold}
+      switchHouseholdAction={switchHouseholdAction}
+      leaveHouseholdAction={leaveHouseholdAction}
+      deleteHouseholdAction={deleteHouseholdAction}
+      removeMemberAction={removeHouseholdMemberAction}
     />
   );
 }

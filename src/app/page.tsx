@@ -5,6 +5,7 @@ import { GetSolarGeneration } from "@/application/use-cases/GetSolarGeneration";
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
 import { GetDailySummary } from "@/application/use-cases/GetDailySummary";
 import { createClient } from "@/infrastructure/supabase/server";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
 
 import { ConsumptionCard } from "@/components/ConsumptionCard";
 import { SolarCard } from "@/components/SolarCard";
@@ -53,39 +54,38 @@ export default async function DashboardPage({
 
   const supabase = await createClient();
 
+  const notice = typeof resolvedParams.notice === 'string' ? resolvedParams.notice : undefined;
+
   // Check if authenticated user has a household and resolve installation details
   const { data: { user } } = await supabase.auth.getUser();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let household: any = null;
 
   if (user) {
-    const { data: memberRows } = await supabase
-      .from('household_members')
-      .select('household_id, households (*)')
-      .eq('user_id', user.id)
-      .limit(1);
-
-    if (!memberRows || memberRows.length === 0) {
-      return <HouseholdOnboarding userEmail={user.email} />;
+    const { activeHousehold } = await getActiveHousehold(supabase, user.id);
+    if (!activeHousehold || resolvedParams.action === 'create_household') {
+      return (
+        <HouseholdOnboarding 
+          userEmail={user.email} 
+          notice={notice} 
+          initialMode={resolvedParams.action === 'create_household' ? 'create' : 'choose'}
+          showCancel={!!activeHousehold}
+        />
+      );
     }
-    household = memberRows[0]?.households;
+    household = activeHousehold;
   }
 
   if (!household) {
-    const { data: households } = await supabase
-      .from('households')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
-    household = households?.[0] || null;
+    return <HouseholdOnboarding userEmail={user?.email} notice={notice} />;
   }
 
   const capacityKwp = Number(household?.capacity_kwp) || 0;
   const hasSolar = capacityKwp > 0;
   const displayInstallationName = household?.installation_name || household?.name || 'Hogar';
 
-  const energyRepo   = new SupabaseEnergyReadingRepository(supabase);
-  const settingsRepo = new SupabaseSettingsRepository(supabase);
+  const energyRepo   = new SupabaseEnergyReadingRepository(supabase, household.id);
+  const settingsRepo = new SupabaseSettingsRepository(supabase, household.id);
 
   const getConsumption = new GetCurrentConsumption(energyRepo);
   const getSolar       = new GetSolarGeneration(energyRepo);
@@ -158,7 +158,7 @@ export default async function DashboardPage({
     addData(historySolar, 'solar');
 
     // Convert map to array and format label
-    chartData = Array.from(dailyData.entries()).map(([dayKey, values]) => {
+    const allDays = Array.from(dailyData.entries()).map(([dayKey, values]) => {
       const date = new Date(dayKey + 'T12:00:00Z');
       let labelFormat: Intl.DateTimeFormatOptions = { weekday: "short" };
       if (range === '30d') labelFormat = { day: "2-digit", month: "short" };
@@ -169,6 +169,14 @@ export default async function DashboardPage({
         solar: Number(values.solar.toFixed(2)),
       };
     });
+
+    if (range === '7d') {
+      chartData = allDays.slice(-7);
+    } else if (range === '30d') {
+      chartData = allDays.slice(-30);
+    } else {
+      chartData = allDays;
+    }
   }
 
   return (
@@ -311,8 +319,13 @@ export default async function DashboardPage({
 
         {/* ── Real-time cards (Row 2) ─── */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          <ConsumptionCard valueKwh={consumptionKwh} />
+          <ConsumptionCard 
+            valueKwh={consumptionKwh} 
+            totalKwh={dailySummary ? dailySummary.consumptionKwh : 11.9} 
+            hasSolar={hasSolar} 
+          />
           <SolarCard valueKwh={solarKwh} consumptionKwh={consumptionKwh} hasSolar={hasSolar} />
+
           <div className="md:col-span-2 xl:col-span-1 h-full">
             <BalanceIndicator consumptionKwh={consumptionKwh} solarKwh={solarKwh} hasSolar={hasSolar} />
           </div>

@@ -10,7 +10,7 @@ import { Menu } from 'lucide-react';
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
-  const isAuthPage = pathname === '/login';
+  const isAuthPage = pathname === '/login' || pathname === '/registro';
 
   if (isAuthPage) {
     return <div className="min-h-screen w-full">{children}</div>;
@@ -66,10 +66,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-[11px] sm:text-xs">Telemetría en tiempo real</span>
           </div>
           <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-end">
-            <span className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              3.2 kg CO₂ evitado hoy
-            </span>
             <span>© 2026 Telar Monitor</span>
           </div>
         </footer>

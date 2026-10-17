@@ -3,13 +3,18 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { createAnonClient } from './client';
 
 export class SupabaseSettingsRepository implements SettingsRepository {
-  constructor(private supabase: SupabaseClient = createAnonClient()) {}
+  constructor(
+    private supabase: SupabaseClient = createAnonClient(),
+    private householdId?: string
+  ) {}
 
   async getSetting(key: string): Promise<string | null> {
+    if (!this.householdId) return null;
+
     const { data, error } = await this.supabase
       .from('households')
       .select('*')
-      .order('created_at', { ascending: false })
+      .eq('id', this.householdId)
       .limit(1);
 
     if (error || !data || data.length === 0) return null;
@@ -29,10 +34,12 @@ export class SupabaseSettingsRepository implements SettingsRepository {
   }
 
   async getAllSettings(): Promise<Record<string, string>> {
+    if (!this.householdId) return {};
+
     const { data, error } = await this.supabase
       .from('households')
       .select('*')
-      .order('created_at', { ascending: false })
+      .eq('id', this.householdId)
       .limit(1);
 
     if (error || !data || data.length === 0) return {};

@@ -93,14 +93,21 @@ interface ConsumptionDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   totalKwh?: number;
+  hasSolar?: boolean;
 }
 
-export function ConsumptionDetailModal({ isOpen, onClose, totalKwh = 11.9 }: ConsumptionDetailModalProps) {
+export function ConsumptionDetailModal({ 
+  isOpen, 
+  onClose, 
+  totalKwh = 11.9,
+  hasSolar = true 
+}: ConsumptionDetailModalProps) {
   if (!isOpen) return null;
 
   const totalCost = Math.round(totalKwh * 950);
   const totalSolarCovered = Math.round(totalKwh * 0.68 * 10) / 10;
   const solarSavingsCop = Math.round(totalSolarCovered * 950);
+  const potentialSavingsCop = Math.round(totalCost * 0.70);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
@@ -119,7 +126,9 @@ export function ConsumptionDetailModal({ isOpen, onClose, totalKwh = 11.9 }: Con
                 Detalle de Consumo por Electrodoméstico
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Desglose estimado y cobertura solar por categoría de carga
+                {hasSolar 
+                  ? 'Desglose estimado y cobertura solar por categoría de carga' 
+                  : 'Desglose de demanda eléctrica residencial suministrada por la red'}
               </p>
             </div>
           </div>
@@ -142,33 +151,66 @@ export function ConsumptionDetailModal({ isOpen, onClose, totalKwh = 11.9 }: Con
             <span className="text-[11px] text-slate-500 mt-1 block">${totalCost.toLocaleString('es-CO')} COP estimados</span>
           </div>
 
-          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1 flex items-center gap-1">
-              <Sun className="w-3.5 h-3.5" /> Autoconsumo Solar
-            </span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{totalSolarCovered.toFixed(1)}</span>
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400">kWh</span>
-            </div>
-            <span className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold mt-1 block">
-              68% cubierto por tus paneles
-            </span>
-          </div>
+          {hasSolar ? (
+            <>
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1 flex items-center gap-1">
+                  <Sun className="w-3.5 h-3.5" /> Autoconsumo Solar
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{totalSolarCovered.toFixed(1)}</span>
+                  <span className="text-xs font-bold text-amber-600 dark:text-amber-400">kWh</span>
+                </div>
+                <span className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold mt-1 block">
+                  68% cubierto por tus paneles
+                </span>
+              </div>
 
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> Ahorro Evitado
-            </span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-                ${solarSavingsCop.toLocaleString('es-CO')}
-              </span>
-            </div>
-            <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold mt-1 block">
-              No pagado a la red hoy
-            </span>
-          </div>
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 block mb-1 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" /> Ahorro Evitado
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                    ${solarSavingsCop.toLocaleString('es-CO')}
+                  </span>
+                </div>
+                <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-semibold mt-1 block">
+                  No pagado a la red hoy
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400 block mb-1 flex items-center gap-1">
+                  <Zap className="w-3.5 h-3.5" /> Suministro de Red
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-blue-600 dark:text-blue-400">100%</span>
+                </div>
+                <span className="text-[11px] text-blue-700 dark:text-blue-300 font-semibold mt-1 block">
+                  Energía comercial ($950/kWh)
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block mb-1 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" /> Ahorro Potencial
+                </span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-black text-amber-600 dark:text-amber-400">
+                    ${potentialSavingsCop.toLocaleString('es-CO')}
+                  </span>
+                </div>
+                <span className="text-[11px] text-amber-700 dark:text-amber-300 font-semibold mt-1 block">
+                  Hasta 70% si instalas paneles
+                </span>
+              </div>
+            </>
+          )}
         </div>
+
 
         {/* Scrollable Appliances List */}
         <div className="p-6 overflow-y-auto space-y-3 flex-1 hide-scrollbar">

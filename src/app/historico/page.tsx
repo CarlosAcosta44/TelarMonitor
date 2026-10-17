@@ -6,6 +6,8 @@ import Link from "next/link";
 
 import { ExportButton } from "@/components/ExportButton";
 import { createClient } from "@/infrastructure/supabase/server";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
+import { redirect } from "next/navigation";
 
 export const revalidate = 60;
 
@@ -21,29 +23,22 @@ export default async function HistoricoPage({
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  let household = null;
-  if (user) {
-    const { data: memberRows } = await supabase
-      .from('household_members')
-      .select('household_id, households (*)')
-      .eq('user_id', user.id)
-      .limit(1);
-    household = memberRows?.[0]?.households;
+  if (!user) {
+    redirect('/login');
   }
 
-  if (!household) {
-    const { data: households } = await supabase
-      .from('households')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
-    household = households?.[0] || null;
+  const { activeHousehold } = await getActiveHousehold(supabase, user.id);
+
+  if (!activeHousehold) {
+    redirect('/?notice=sin_hogar');
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const household: any = activeHousehold;
   const capacityKwp = Number(household?.capacity_kwp) || 0;
   const hasSolar = capacityKwp > 0;
 
-  const energyRepo = new SupabaseEnergyReadingRepository(supabase);
+  const energyRepo = new SupabaseEnergyReadingRepository(supabase, household.id);
   const getHistory = new GetHistoricalReadings(energyRepo);
 
   // We fetch 30 days of data to populate the charts AND the time patterns/recent days

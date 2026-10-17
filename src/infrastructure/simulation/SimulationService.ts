@@ -34,23 +34,47 @@ export class SimulationService {
 
   /**
    * Generates a single reading tick (both types) based on the current time.
-   * Called by the /api/simulate/reading endpoint.
+   * Called by the /api/simulate/reading endpoint or the simulator modal.
    */
-  async generateTick() {
+  async generateTick(targetHouseholdId?: string) {
     const hour = new Date().getHours();
     const [min, max] = CONSUMPTION_BASE[hour];
     const consumptionKwh = randomBetween(min, max);
-    const solarKwh = solarForHour(hour, 1.0);
 
-    const { data: household } = await supabase.from('households').select('id').order('created_at', { ascending: false }).limit(1).single();
+    let query = supabase.from('households').select('id, capacity_kwp');
+    if (targetHouseholdId) {
+      query = query.eq('id', targetHouseholdId);
+    } else {
+      query = query.order('created_at', { ascending: false }).limit(1);
+    }
+
+    const { data: household } = await query.single();
+    
     const householdId = household?.id;
+    const capacityKwp = Number(household?.capacity_kwp) || 0;
+    const hasSolar = capacityKwp > 0;
+    const solarKwh = hasSolar ? solarForHour(hour, 1.0) : 0;
 
-    await Promise.all([
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.repository.insertReading({ reading_type: 'consumption', value_kwh: consumptionKwh, ...(householdId ? { household_id: householdId } : {}) } as any),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.repository.insertReading({ reading_type: 'solar_generation', value_kwh: solarKwh, ...(householdId ? { household_id: householdId } : {}) } as any),
-    ]);
+    const inserts = [
+      this.repository.insertReading({
+        reading_type: 'consumption',
+        value_kwh: consumptionKwh,
+        ...(householdId ? { household_id: householdId } : {})
+      } as any)
+    ];
+
+    if (hasSolar) {
+      inserts.push(
+        this.repository.insertReading({
+          reading_type: 'solar_generation',
+          value_kwh: solarKwh,
+          ...(householdId ? { household_id: householdId } : {})
+        } as any)
+      );
+    }
+
+    await Promise.all(inserts);
+    return { consumptionKwh, solarKwh, hasSolar };
   }
 
   /**
@@ -58,11 +82,22 @@ export class SimulationService {
    * Generates one reading every 15 minutes over the last `days` days.
    * Random cloud factors per day make the solar curve believably variable.
    */
-  async seedHistoricalData(days: number = 7, targetHouseholdId?: string) {
-    let householdId = targetHouseholdId;
-    if (!householdId) {
-      const { data: household } = await supabase.from('households').select('id').limit(1).single();
-      householdId = household?.id;
+  async seedHistoricalData(days: number = 7, targetHouseholdId?: string, cleanBefore: boolean = false) {
+    let householdQuery = supabase.from('households').select('id, name, capacity_kwp');
+    if (targetHouseholdId) {
+      householdQuery = householdQuery.eq('id', targetHouseholdId);
+    } else {
+      householdQuery = householdQuery.order('created_at', { ascending: false }).limit(1);
+    }
+
+    const { data: household } = await householdQuery.single();
+    const householdId = household?.id;
+    const capacityKwp = Number(household?.capacity_kwp) || 0;
+    const hasSolar = capacityKwp > 0;
+
+    // Optional cleaning to avoid duplicate rows
+    if (cleanBefore && householdId) {
+      await supabase.from('energy_readings').delete().eq('household_id', householdId);
     }
 
     const readings: {
@@ -99,18 +134,30 @@ export class SimulationService {
           const consumption = parseFloat(
             (consumptionForHour(h) * weekendFactor).toFixed(4),
           );
-          const solar = solarForHour(h, cloudFactor);
 
-          readings.push(
-            { reading_type: 'consumption',      value_kwh: consumption, recorded_at: ts.toISOString(), ...(householdId ? { household_id: householdId } : {}) },
-            { reading_type: 'solar_generation', value_kwh: solar,       recorded_at: ts.toISOString(), ...(householdId ? { household_id: householdId } : {}) },
-          );
+          readings.push({
+            reading_type: 'consumption',
+            value_kwh: consumption,
+            recorded_at: ts.toISOString(),
+            ...(householdId ? { household_id: householdId } : {})
+          });
+
+          // Dual support: only insert solar_generation if household has solar
+          if (hasSolar) {
+            const solar = solarForHour(h, cloudFactor);
+            readings.push({
+              reading_type: 'solar_generation',
+              value_kwh: solar,
+              recorded_at: ts.toISOString(),
+              ...(householdId ? { household_id: householdId } : {})
+            });
+          }
         }
       }
     }
 
-    // Bulk insert in chunks to avoid Supabase payload limits
-    const CHUNK = 2000;
+    // Bulk insert in chunks of 500 to avoid Supabase payload limits
+    const CHUNK = 500;
     for (let i = 0; i < readings.length; i += CHUNK) {
       const chunk = readings.slice(i, i + CHUNK);
       const { error } = await supabase.from('energy_readings').insert(chunk);
@@ -120,7 +167,7 @@ export class SimulationService {
       }
     }
 
-    console.log(`Seeded ${readings.length} energy readings.`);
+    console.log(`Seeded ${readings.length} energy readings for ${household?.name || 'household'}.`);
 
     // Seed Synthetic Alerts
     const alerts = [

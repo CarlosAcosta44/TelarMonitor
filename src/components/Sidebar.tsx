@@ -17,14 +17,8 @@ import {
   LogOut,
   X
 } from 'lucide-react';
-
-const navItems = [
-  { name: 'Dashboard Principal', href: '/', icon: LayoutDashboard },
-  { name: 'Histórico y Tendencias', href: '/historico', icon: TrendingUp },
-  { name: 'Comparativa y Ahorro', href: '/ahorro', icon: PiggyBank },
-  { name: 'Alertas del Sistema', href: '/alertas', icon: BellRing, badge: 1 },
-  { name: 'Configuración Hogar', href: '/configuracion', icon: Settings },
-];
+import { AccountProfileModal } from '@/components/AccountProfileModal';
+import { getHouseholdAlertsAction } from '@/app/alertas/actions';
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -36,7 +30,35 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const [userEmail, setUserEmail] = React.useState<string | null>(null);
-  const [householdName, setHouseholdName] = React.useState<string>('Hogar Las Palmas');
+  const [householdName, setHouseholdName] = React.useState<string>('...');
+  const [userName, setUserName] = React.useState<string>('Usuario');
+  const [userRole, setUserRole] = React.useState<string>('owner');
+  const [isAccountModalOpen, setIsAccountModalOpen] = React.useState<boolean>(false);
+  const [alertsCount, setAlertsCount] = React.useState<number>(0);
+
+  // Dynamic alerts count loader
+  React.useEffect(() => {
+    async function loadAlertsCount() {
+      try {
+        const res = await getHouseholdAlertsAction();
+        if (res.success && res.alerts) {
+          const active = res.alerts.filter(a => !a.is_resolved).length;
+          setAlertsCount(active);
+        }
+      } catch (err) {
+        console.warn('Error loading alerts count in sidebar:', err);
+      }
+    }
+
+    loadAlertsCount();
+    const onAlertsUpdate = () => loadAlertsCount();
+    window.addEventListener('alerts-updated', onAlertsUpdate);
+    const interval = setInterval(loadAlertsCount, 30000);
+    return () => {
+      window.removeEventListener('alerts-updated', onAlertsUpdate);
+      clearInterval(interval);
+    };
+  }, [pathname]);
 
   React.useEffect(() => {
     // 1. Listen for immediate client-side updates (e.g. after saving in Settings)
@@ -59,39 +81,47 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
       }
       
       if (user) {
+        if (user.user_metadata?.full_name) {
+          setUserName(user.user_metadata.full_name);
+        } else if (user.email) {
+          setUserName(user.email.split('@')[0]);
+        }
+
         // Fetch household through member relation for the current user
         const { data: memberRows } = await supabase
           .from('household_members')
-          .select('household_id, households (name, installation_name)')
-          .eq('user_id', user.id)
-          .limit(1);
+          .select('household_id, role, households (id, name, installation_name)')
+          .eq('user_id', user.id);
 
         if (memberRows && memberRows.length > 0) {
+          // Read active household cookie
+          const cookieMatch = document.cookie.match(/telar_active_household_id=([^;]+)/);
+          const activeId = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const h = memberRows[0].households as any;
-          const name = h?.installation_name || h?.name;
-          if (name) {
-            setHouseholdName(name);
+          const valid = memberRows.filter((r: any) => r.households);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const matched = activeId ? valid.find((r: any) => r.household_id === activeId) : null;
+          const current = matched || valid[0];
+
+          if (current) {
+            if (current.role) setUserRole(current.role);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const h = current.households as any;
+            const name = h?.installation_name || h?.name;
+            if (name) {
+              setHouseholdName(name);
+            }
             return;
           }
         } else {
           setHouseholdName('Sin Hogar Vinculado');
           return;
         }
-      }
-
-      // Fallback for demo/anon mode
-      const { data: households } = await supabase
-        .from('households')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      const household = households && households.length > 0 ? households[0] : null;
-      const name = household?.installation_name || household?.name;
-      if (name) {
-        setHouseholdName(name);
-        return;
+      } else {
+        setUserEmail(null);
+        setUserName('Invitado');
+        setHouseholdName('Sin Sesión');
       }
     }
     loadUser();
@@ -104,6 +134,13 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
     router.refresh();
   };
 
+  const navItems = [
+    { name: 'Dashboard Principal', href: '/', icon: LayoutDashboard },
+    { name: 'Histórico y Tendencias', href: '/historico', icon: TrendingUp },
+    { name: 'Comparativa y Ahorro', href: '/ahorro', icon: PiggyBank },
+    { name: 'Alertas del Sistema', href: '/alertas', icon: BellRing, badge: alertsCount > 0 ? alertsCount : undefined },
+    { name: 'Configuración Hogar', href: '/configuracion', icon: Settings },
+  ];
 
   return (
     <>
@@ -158,6 +195,7 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
           </p>
           {navItems.map((item) => {
             const isActive = pathname === item.href;
+
             return (
               <Link
                 key={item.name}
@@ -210,10 +248,13 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
         </div>
 
         {/* User Profile & Logout */}
-        <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800">
+        <div 
+          onClick={() => setIsAccountModalOpen(true)}
+          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
+        >
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden flex items-center justify-center shrink-0">
-              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User avatar" />
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+              {userName.slice(0, 2).toUpperCase()}
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{householdName}</p>
@@ -221,7 +262,10 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
             </div>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLogout();
+            }}
             title="Cerrar Sesión"
             className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
           >
@@ -229,8 +273,17 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
           </button>
         </div>
       </div>
-
     </aside>
+
+    <AccountProfileModal
+      isOpen={isAccountModalOpen}
+      onClose={() => setIsAccountModalOpen(false)}
+      userEmail={userEmail || 'usuario@telar.co'}
+      userName={userName}
+      householdName={householdName}
+      role={userRole}
+    />
   </>
   );
 }
+

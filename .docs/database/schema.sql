@@ -157,6 +157,21 @@ $$;
 
 COMMENT ON FUNCTION public.get_user_household_ids IS 'Retorna los household_id accesibles para un usuario de forma segura y optimizada.';
 
+CREATE OR REPLACE FUNCTION public.is_household_owner(p_household_id UUID, p_user_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.household_members
+    WHERE household_id = p_household_id AND user_id = p_user_id AND role = 'owner'
+  );
+$$;
+
+COMMENT ON FUNCTION public.is_household_owner IS 'Verifica si un usuario posee el rol de propietario (owner) en un hogar determinado.';
+
 
 -- ==============================================================================
 -- 7. PROCEDIMIENTO RPC: UNIRSE A UN HOGAR POR CÓDIGO (join_household_by_code)
@@ -264,6 +279,154 @@ COMMENT ON FUNCTION public.create_household_with_owner IS 'Crea un nuevo hogar y
 
 
 -- ==============================================================================
+-- 8.1 CONSULTA ENRIQUECIDA DE MIEMBROS (get_household_members_with_profiles)
+-- ==============================================================================
+-- Retorna los miembros de un hogar integrando los metadatos de perfil (nombre y email)
+-- directamente desde auth.users de manera segura y sin exponer la tabla auth.
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.get_household_members_with_profiles(p_household_id UUID)
+RETURNS TABLE (
+  id UUID,
+  household_id UUID,
+  user_id UUID,
+  role TEXT,
+  created_at TIMESTAMPTZ,
+  user_email TEXT,
+  user_name TEXT
+)
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, auth
+STABLE
+AS $$
+  SELECT 
+    hm.id,
+    hm.household_id,
+    hm.user_id,
+    hm.role,
+    hm.created_at,
+    u.email::TEXT AS user_email,
+    COALESCE(
+      NULLIF(u.raw_user_meta_data->>'full_name', ''),
+      NULLIF(u.raw_user_meta_data->>'name', ''),
+      SPLIT_PART(u.email, '@', 1)
+    )::TEXT AS user_name
+  FROM public.household_members hm
+  LEFT JOIN auth.users u ON u.id = hm.user_id
+  WHERE hm.household_id = p_household_id;
+$$;
+
+COMMENT ON FUNCTION public.get_household_members_with_profiles IS 'Retorna miembros de un hogar enriquecidos con nombre y correo electrónico desde auth.users.';
+
+
+-- ==============================================================================
+-- 8.2 REMOCIÓN CONTROLADA DE MIEMBROS (remove_household_member)
+-- ==============================================================================
+-- Permite que un propietario o administrador expulse a observadores o miembros de su hogar.
+-- Impide remover al propietario principal.
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.remove_household_member(p_member_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_household_id UUID;
+  v_target_role TEXT;
+  v_is_authorized BOOLEAN;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No autenticado');
+  END IF;
+
+  SELECT household_id, role INTO v_household_id, v_target_role
+  FROM public.household_members
+  WHERE id = p_member_id;
+
+  IF v_household_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Miembro no encontrado');
+  END IF;
+
+  IF v_target_role = 'owner' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No se puede remover al propietario del hogar');
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.household_members
+    WHERE household_id = v_household_id AND user_id = v_user_id AND role IN ('owner', 'admin')
+  ) INTO v_is_authorized;
+
+  IF NOT v_is_authorized THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Solo el propietario o administrador puede remover miembros');
+  END IF;
+
+  DELETE FROM public.household_members WHERE id = p_member_id;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Miembro removido exitosamente');
+END;
+$$;
+
+COMMENT ON FUNCTION public.remove_household_member IS 'Permite a owners/admins expulsar miembros de un hogar de forma segura y validada.';
+
+
+-- ==============================================================================
+-- 8.3 ELIMINACIÓN ATÓMICA DE HOGAR POR PROPIETARIO (delete_household_by_owner)
+-- ==============================================================================
+-- Elimina una instalación y todas sus entidades dependientes de forma transaccional.
+-- Solo ejecutable por el owner autenticado o para hogares huérfanos sin miembros.
+-- ==============================================================================
+
+CREATE OR REPLACE FUNCTION public.delete_household_by_owner(p_household_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_is_owner BOOLEAN;
+BEGIN
+  v_user_id := auth.uid();
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'No autenticado');
+  END IF;
+
+  SELECT EXISTS (
+    SELECT 1 FROM public.household_members
+    WHERE household_id = p_household_id AND user_id = v_user_id AND role = 'owner'
+  ) INTO v_is_owner;
+
+  IF NOT v_is_owner THEN
+    IF NOT EXISTS (SELECT 1 FROM public.household_members WHERE household_id = p_household_id) THEN
+      DELETE FROM public.energy_readings WHERE household_id = p_household_id;
+      DELETE FROM public.system_alerts WHERE household_id = p_household_id;
+      DELETE FROM public.household_invitations WHERE household_id = p_household_id;
+      DELETE FROM public.households WHERE id = p_household_id;
+      RETURN jsonb_build_object('success', true, 'message', 'Hogar huérfano eliminado');
+    END IF;
+
+    RETURN jsonb_build_object('success', false, 'error', 'Solo el propietario puede eliminar este hogar');
+  END IF;
+
+  DELETE FROM public.energy_readings WHERE household_id = p_household_id;
+  DELETE FROM public.system_alerts WHERE household_id = p_household_id;
+  DELETE FROM public.household_invitations WHERE household_id = p_household_id;
+  DELETE FROM public.household_members WHERE household_id = p_household_id;
+  DELETE FROM public.households WHERE id = p_household_id;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Hogar eliminado exitosamente');
+END;
+$$;
+
+COMMENT ON FUNCTION public.delete_household_by_owner IS 'Eliminación atómica y segura de hogar y dependencias por su propietario.';
+
+
+-- ==============================================================================
 -- 9. POLÍTICAS DE SEGURIDAD POR FILA (ROW LEVEL SECURITY - RLS)
 -- ==============================================================================
 -- Aislamiento estricto por hogar:
@@ -276,6 +439,7 @@ ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "rls_households_select" ON public.households;
 DROP POLICY IF EXISTS "rls_households_update" ON public.households;
 DROP POLICY IF EXISTS "rls_households_insert" ON public.households;
+DROP POLICY IF EXISTS "rls_households_delete" ON public.households;
 
 CREATE POLICY "rls_households_select" ON public.households
   FOR SELECT TO authenticated, anon
@@ -298,6 +462,13 @@ CREATE POLICY "rls_households_update" ON public.households
 CREATE POLICY "rls_households_insert" ON public.households
   FOR INSERT TO authenticated
   WITH CHECK (true);
+
+CREATE POLICY "rls_households_delete" ON public.households
+  FOR DELETE TO authenticated
+  USING (
+    public.is_household_owner(id, auth.uid())
+    OR NOT EXISTS (SELECT 1 FROM public.household_members WHERE household_id = id)
+  );
 
 -- ── 9.2 HOUSEHOLD_MEMBERS ──
 ALTER TABLE public.household_members ENABLE ROW LEVEL SECURITY;
@@ -322,7 +493,10 @@ CREATE POLICY "rls_members_update" ON public.household_members
 
 CREATE POLICY "rls_members_delete" ON public.household_members
   FOR DELETE TO authenticated
-  USING (user_id = auth.uid());
+  USING (
+    user_id = auth.uid() 
+    OR public.is_household_owner(household_id, auth.uid())
+  );
 
 -- ── 9.3 HOUSEHOLD_INVITATIONS ──
 ALTER TABLE public.household_invitations ENABLE ROW LEVEL SECURITY;
@@ -438,3 +612,7 @@ WHERE household_id IS NULL;
 UPDATE public.system_alerts
 SET household_id = (SELECT id FROM public.households ORDER BY created_at ASC LIMIT 1)
 WHERE household_id IS NULL;
+
+-- 4. Limpieza de hogares huérfanos sin miembros vinculados
+DELETE FROM public.households
+WHERE id NOT IN (SELECT household_id FROM public.household_members);
