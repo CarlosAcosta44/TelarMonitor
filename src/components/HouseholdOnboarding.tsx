@@ -17,8 +17,7 @@ import {
   Sparkles,
   Loader2
 } from 'lucide-react';
-import { createHouseholdAction, joinHousehold } from '@/app/configuracion/actions';
-import { seedHistoricalAction } from '@/app/configuracion/simulatorActions';
+import { joinHousehold } from '@/app/configuracion/actions';
 
 interface HouseholdOnboardingProps {
   userEmail?: string;
@@ -33,7 +32,7 @@ export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingPr
 
   // Form states
   const [name, setName] = useState('');
-  const [location, setLocation] = useState('Envigado, Antioquia');
+  const [location, setLocation] = useState('');
   const [hasSolarPanels, setHasSolarPanels] = useState(true);
   const [capacityKwp, setCapacityKwp] = useState('4.2');
   const [inviteCode, setInviteCode] = useState('');
@@ -47,20 +46,31 @@ export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingPr
     setLoading(true);
     setErrorMsg(null);
 
-    const formData = new FormData();
-    formData.append('name', name);
-    formData.append('location', location);
-    formData.append('capacity_kwp', hasSolarPanels ? (capacityKwp || '4.2') : '0');
+    try {
+      const res = await fetch('/api/household/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          location: location.trim() || 'Bogotá, Cundinamarca',
+          capacity_kwp: hasSolarPanels ? (capacityKwp || '4.2') : '0'
+        })
+      });
 
-    const res = await createHouseholdAction(formData);
-    if (!res.success) {
-      setErrorMsg(res.error || 'Error al crear el hogar');
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setErrorMsg(data.error || 'Error al crear el hogar');
+        setLoading(false);
+      } else {
+        setCreatedHouseholdId(data.household_id || null);
+        setLoading(false);
+        window.dispatchEvent(new CustomEvent('household-updated', { detail: { name: name } }));
+        setMode('pairing');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar con el servidor';
+      setErrorMsg(msg);
       setLoading(false);
-    } else {
-      setCreatedHouseholdId(res.household_id || null);
-      setLoading(false);
-      window.dispatchEvent(new CustomEvent('household-updated', { detail: { name: name } }));
-      setMode('pairing');
     }
   };
 
@@ -76,12 +86,12 @@ export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingPr
     // Step 2 -> Step 3 after 3.6s
     const timer2 = setTimeout(() => {
       setPairingStep(3);
-      // Seed initial 1-day telemetry in background so graphs have data immediately
+      // Seed initial 1-day telemetry in background via REST API so graphs have data immediately without router refresh
       if (createdHouseholdId) {
-        seedHistoricalAction({
-          days: 1,
-          cleanBefore: false,
-          householdId: createdHouseholdId
+        fetch('/api/simulate/seed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days: 1, householdId: createdHouseholdId })
         }).catch(err => console.warn('Sembrado inicial omitido o diferido:', err));
       }
     }, 3600);
@@ -257,7 +267,7 @@ export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingPr
                   <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                   <input
                     type="text"
-                    placeholder="Ej. Envigado, Antioquia"
+                    placeholder="Ej. Bogotá, Cundinamarca"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
