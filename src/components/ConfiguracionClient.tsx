@@ -27,8 +27,10 @@ import {
   Radio,
   ShieldCheck,
   X,
-  AlertCircle
+  AlertCircle,
+  Cpu
 } from "lucide-react";
+import { SimulatorControlModal } from "@/components/SimulatorControlModal";
 
 interface HouseholdData {
   id: string;
@@ -116,6 +118,9 @@ export function ConfiguracionClient({
   const [newPassword, setNewPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Simulator Modal State
+  const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
 
   // Invite Member State (Preservado para cuando se integre proveedor SMTP)
   // const [inviteEmail, setInviteEmail] = useState('');
@@ -294,6 +299,15 @@ export function ConfiguracionClient({
               <CheckCircle2 className="w-4 h-4" /> Sincronizado
             </span>
           )}
+          <button
+            type="button"
+            onClick={() => setIsSimulatorModalOpen(true)}
+            className="px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 transition-all shadow-sm"
+          >
+            <Cpu className="w-4 h-4 text-amber-500" />
+            Simulador IoT
+          </button>
+
           <button 
             onClick={() => handleSubmit()}
             disabled={isSaving}
@@ -312,6 +326,7 @@ export function ConfiguracionClient({
           </button>
         </div>
       </div>
+
 
       {/* Tabs */}
       <div className="flex bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-sm overflow-x-auto hide-scrollbar">
@@ -803,6 +818,34 @@ export function ConfiguracionClient({
                   </div>
                 </div>
 
+                {/* Simulator Integration Card */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-transparent border border-amber-500/20 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-500 text-white rounded-xl flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/30">
+                      <Cpu className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                        Microservicio Backend Simulator & IoT
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300">
+                          Control Total
+                        </span>
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Siembra datos de 7 o 30 días, emite pulsos de prueba o vacía registros duplicados de la base de datos.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSimulatorModalOpen(true)}
+                    className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm shadow-amber-600/20 shrink-0"
+                  >
+                    <Beaker className="w-4 h-4" />
+                    Abrir Panel del Simulador
+                  </button>
+                </div>
+
                 {/* API Bearer Token */}
                 <div className="p-5 rounded-2xl bg-slate-950 border border-slate-800 text-white mb-6">
                   <div className="flex justify-between items-center mb-2">
@@ -1089,6 +1132,17 @@ export function ConfiguracionClient({
           </div>
         </div>
       )}
+
+      {/* Simulator & Telemetry Modal */}
+      <SimulatorControlModal
+        isOpen={isSimulatorModalOpen}
+        onClose={() => setIsSimulatorModalOpen(false)}
+        household={{
+          id: household.id,
+          installation_name: household.installation_name,
+          capacity_kwp: household.capacity_kwp,
+        }}
+      />
 
     </div>
   );
