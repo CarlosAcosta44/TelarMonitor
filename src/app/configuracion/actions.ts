@@ -225,7 +225,6 @@ export async function createHouseholdAction(formData: FormData) {
     return { success: false, error: mError.message };
   }
 
-  revalidatePath('/');
   revalidatePath('/configuracion');
   revalidatePath('/historico');
   revalidatePath('/ahorro');

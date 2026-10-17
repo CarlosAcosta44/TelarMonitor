@@ -59,6 +59,7 @@ export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingPr
     } else {
       setCreatedHouseholdId(res.household_id || null);
       setLoading(false);
+      window.dispatchEvent(new CustomEvent('household-updated', { detail: { name: name } }));
       setMode('pairing');
     }
   };
