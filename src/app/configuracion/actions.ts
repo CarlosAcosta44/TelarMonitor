@@ -2,6 +2,7 @@
 
 import { createClient } from "@/infrastructure/supabase/server";
 import { revalidatePath } from "next/cache";
+import crypto from "crypto";
 
 export async function updateSettings(formData: FormData) {
   const supabase = await createClient();
@@ -189,6 +190,9 @@ export async function createHouseholdAction(formData: FormData) {
     return { success: false, error: 'Debes iniciar sesión para crear un hogar' };
   }
 
+  // Generate unique 8-character uppercase invite code (e.g. 8B741183)
+  const inviteCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+
   // 1. Insert new household
   const { data: household, error: hError } = await supabase
     .from('households')
@@ -196,7 +200,11 @@ export async function createHouseholdAction(formData: FormData) {
       name: name,
       installation_name: name,
       location: location,
-      capacity_kwp: isNaN(capacityKwp) ? 4.2 : capacityKwp
+      capacity_kwp: isNaN(capacityKwp) ? 4.2 : capacityKwp,
+      invite_code: inviteCode,
+      energy_rate_cop_per_kwh: 950,
+      export_rate: 650,
+      alert_threshold_kw: 5.0
     })
     .select('id')
     .single();
