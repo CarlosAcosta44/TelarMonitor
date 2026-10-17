@@ -184,15 +184,21 @@ export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
           </p>
           {navItems.map((item) => {
             const isActive = pathname === item.href;
+            const isUnlinked = householdName === 'Sin Hogar Vinculado' && item.href !== '/';
+            const targetHref = isUnlinked ? '/?notice=sin_hogar' : item.href;
+
             return (
               <Link
                 key={item.name}
-                href={item.href}
+                href={targetHref}
                 onClick={onCloseMobile}
+                title={isUnlinked ? 'Requiere vincular un hogar primero' : undefined}
                 className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                   isActive 
                     ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100 border border-amber-200/80 dark:border-amber-700/50' 
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'
+                    : isUnlinked
+                      ? 'text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent opacity-75'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'
                 }`}
               >
               <div className="flex items-center gap-3">

@@ -13,6 +13,7 @@ import {
   Radio, 
   CheckCircle2, 
   ShieldCheck, 
+  ShieldAlert,
   Sparkles,
   Loader2
 } from 'lucide-react';
@@ -21,12 +22,14 @@ import { seedHistoricalAction } from '@/app/configuracion/simulatorActions';
 
 interface HouseholdOnboardingProps {
   userEmail?: string;
+  notice?: string;
 }
 
-export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
+export function HouseholdOnboarding({ userEmail, notice }: HouseholdOnboardingProps) {
   const [mode, setMode] = useState<'choose' | 'create' | 'join' | 'pairing'>('choose');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [dismissedNotice, setDismissedNotice] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
@@ -131,6 +134,29 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
             Para visualizar las lecturas de energía solar y consumo, vincula tu cuenta a un hogar.
           </p>
         </div>
+
+        {notice === 'sin_hogar' && !dismissedNotice && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-start justify-between gap-3 shadow-sm animate-fade-in">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div className="text-left text-xs sm:text-sm">
+                <p className="font-bold text-amber-900 dark:text-amber-100 mb-0.5">Sección no disponible aún</p>
+                <p className="text-amber-800/90 dark:text-amber-200/90 leading-relaxed">
+                  Para poder acceder a las secciones del menú (Histórico, Ahorro, Alertas o Configuración), tu cuenta debe estar vinculada a un hogar. Por favor, crea un nuevo hogar o únete a uno existente usando el código de invitación.
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setDismissedNotice(true)}
+              className="text-amber-700/60 hover:text-amber-900 dark:text-amber-300/60 dark:hover:text-amber-100 p-1.5 rounded-lg transition-colors text-xs font-bold shrink-0 hover:bg-amber-500/10"
+              title="Cerrar aviso"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 text-center font-semibold">

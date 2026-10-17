@@ -23,7 +23,7 @@ export default async function AlertasPage() {
     .limit(1);
 
   if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
-    redirect('/');
+    redirect('/?notice=sin_hogar');
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

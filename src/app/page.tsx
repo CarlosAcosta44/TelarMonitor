@@ -53,6 +53,8 @@ export default async function DashboardPage({
 
   const supabase = await createClient();
 
+  const notice = typeof resolvedParams.notice === 'string' ? resolvedParams.notice : undefined;
+
   // Check if authenticated user has a household and resolve installation details
   const { data: { user } } = await supabase.auth.getUser();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,13 +68,13 @@ export default async function DashboardPage({
       .limit(1);
 
     if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
-      return <HouseholdOnboarding userEmail={user.email} />;
+      return <HouseholdOnboarding userEmail={user.email} notice={notice} />;
     }
     household = memberRows[0]?.households;
   }
 
   if (!household) {
-    return <HouseholdOnboarding userEmail={user?.email} />;
+    return <HouseholdOnboarding userEmail={user?.email} notice={notice} />;
   }
 
   const capacityKwp = Number(household?.capacity_kwp) || 0;
