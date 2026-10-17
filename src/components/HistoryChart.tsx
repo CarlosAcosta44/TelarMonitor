@@ -28,6 +28,7 @@ export interface ChartDataPoint {
 interface HistoryChartProps {
   data: ChartDataPoint[];
   range: ChartRange;
+  hasSolar?: boolean;
 }
 
 /* ── Custom Tooltip ─────────────────────────────────────────────── */
@@ -107,7 +108,7 @@ function CustomTooltip({ active, payload, label, range }: any) {
 }
 
 /* ── Main Component ─────────────────────────────────────────────── */
-export function HistoryChart({ data, range }: HistoryChartProps) {
+export function HistoryChart({ data, range, hasSolar = true }: HistoryChartProps) {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   if (data.length === 0) {
@@ -132,8 +133,6 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
   return (
     <div className="w-full animate-fade-in-up" style={{ animationDelay: '240ms' }}>
       {/* ── Chart ─── */}
-
-      {/* ── Chart ─── */}
       <div style={{ height: '320px', width: '100%' }}>
         <ResponsiveContainer width="100%" height="100%">
           {range === '7d' ? (
@@ -156,7 +155,7 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
                 content={<CustomTooltip range={range} />}
                 cursor={{ fill: 'rgba(255,255,255,0.04)' }}
               />
-              <Bar dataKey="solar"       name="Solar"   fill="var(--accent-solar)"       radius={[4,4,0,0]} maxBarSize={36} />
+              {hasSolar && <Bar dataKey="solar"       name="Solar"   fill="var(--accent-solar)"       radius={[4,4,0,0]} maxBarSize={36} />}
               <Bar dataKey="consumption" name="Consumo" fill="var(--accent-consumption)" radius={[4,4,0,0]} maxBarSize={36} />
             </BarChart>
           ) : range === '30d' ? (
@@ -186,12 +185,14 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
                 content={<CustomTooltip range={range} />}
                 cursor={{ stroke: 'var(--card-border)', strokeWidth: 1, strokeDasharray: '4 4' }}
               />
-              <Area
-                type="monotone" dataKey="solar" name="Solar"
-                stroke="var(--accent-solar)" strokeWidth={2.5} fill="url(#gradSolar)"
-                dot={false}
-                activeDot={{ r: 5, fill: 'var(--accent-solar)', stroke: 'var(--card-bg)', strokeWidth: 2 }}
-              />
+              {hasSolar && (
+                <Area
+                  type="monotone" dataKey="solar" name="Solar"
+                  stroke="var(--accent-solar)" strokeWidth={2.5} fill="url(#gradSolar)"
+                  dot={false}
+                  activeDot={{ r: 5, fill: 'var(--accent-solar)', stroke: 'var(--card-bg)', strokeWidth: 2 }}
+                />
+              )}
               <Line
                 type="monotone" dataKey="consumption" name="Consumo"
                 stroke="var(--accent-consumption)" strokeWidth={2.5}
@@ -230,12 +231,14 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
                 content={<CustomTooltip range={range} />}
                 cursor={{ stroke: 'var(--card-border)', strokeWidth: 1, strokeDasharray: '4 4' }}
               />
-              <Area
-                type="monotone" dataKey="solar" name="Solar"
-                stroke="var(--accent-solar)" strokeWidth={2.5} fill="url(#gradSolar)"
-                dot={false}
-                activeDot={{ r: 5, fill: 'var(--accent-solar)', stroke: 'var(--card-bg)', strokeWidth: 2 }}
-              />
+              {hasSolar && (
+                <Area
+                  type="monotone" dataKey="solar" name="Solar"
+                  stroke="var(--accent-solar)" strokeWidth={2.5} fill="url(#gradSolar)"
+                  dot={false}
+                  activeDot={{ r: 5, fill: 'var(--accent-solar)', stroke: 'var(--card-bg)', strokeWidth: 2 }}
+                />
+              )}
               <Area
                 type="monotone" dataKey="consumption" name="Consumo"
                 stroke="var(--accent-consumption)" strokeWidth={2.5} fill="url(#gradConsumption)"
@@ -254,7 +257,11 @@ export function HistoryChart({ data, range }: HistoryChartProps) {
             <svg className="w-3 h-3 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Durante las horas centrales de hoy, <strong className="text-slate-700 dark:text-slate-300">el 100% de la energía consumida provino del sol</strong> sin costo de la red eléctrica.
+            {hasSolar ? (
+              <>Durante las horas centrales de hoy, <strong className="text-slate-700 dark:text-slate-300">el 100% de la energía consumida provino del sol</strong> sin costo de la red eléctrica.</>
+            ) : (
+              <>Monitoreo de red activo. <strong className="text-slate-700 dark:text-slate-300">Monitoreando demanda en tiempo real</strong> para optimizar el consumo.</>
+            )}
           </p>
         </div>
         <button 

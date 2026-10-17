@@ -54,6 +54,9 @@ Durante la etapa de desarrollo o para hacer demostraciones (MVP), puedes poblar 
 
 Para un entendimiento profundo del proyecto, dirígete a la carpeta [`.docs/`](./.docs/) donde encontrarás información vital:
 
-- [**Arquitectura y Funcionamiento**](./.docs/arquitectura-y-funcionamiento.md): Conoce las capas del software (Clean Architecture), los casos de uso, las tolerancias a fallos del sistema y cómo fluyen los datos en tiempo real.
-- [**Guía de Integración con Hardware Real**](./.docs/real-hardware-integration.md): Las tres arquitecturas recomendadas y ejemplos de código para migrar del simulador a sensores IoT reales (ESP32, Raspberry Pi, MQTT).
-- [**Setup de Base de Datos**](./.docs/setup-database.sql): Script SQL de referencia para recrear las tablas y los índices necesarios en la base de datos.
+- [**Reglas, Advertencias y Guía Antierrores**](./.docs/guides/reglas-y-advertencias.md): Compendio de restricciones, lecciones aprendidas de errores pasados y reglas arquitectónicas obligatorias.
+- [**Guía Paso a Paso de Pruebas y Simulación**](./.docs/guides/guia-pruebas-y-simulacion.md): Comandos para sembrar datos de 7 o 30 días, limpiar tablas y probar hogares con y sin paneles solares.
+- [**Arquitectura y Funcionamiento**](./.docs/guides/arquitectura-y-funcionamiento.md): Conoce las capas del software (Clean Architecture), los casos de uso, las tolerancias a fallos del sistema y cómo fluyen los datos en tiempo real.
+- [**Guía de Integración con Hardware Real**](./.docs/guides/real-hardware-integration.md): Arquitectura de conexión directa vía REST API y ejemplos de código en C++ para ESP32.
+- [**Esquema de Base de Datos SQL**](./.docs/database/schema.sql): Script consolidado de Supabase con tablas, RLS, funciones RPC y triggers.
+- [**Microservicio Backend del Simulador**](./backend-simulator/README.md): Arquitectura Limpia, Express, WebSockets y despliegue a Railway.

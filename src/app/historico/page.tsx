@@ -19,6 +19,30 @@ export default async function HistoricoPage({
   const range: ChartRange = (rangeParam === "24h" || rangeParam === "7d" || rangeParam === "30d") ? rangeParam : "30d";
 
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  let household = null;
+  if (user) {
+    const { data: memberRows } = await supabase
+      .from('household_members')
+      .select('household_id, households (*)')
+      .eq('user_id', user.id)
+      .limit(1);
+    household = memberRows?.[0]?.households;
+  }
+
+  if (!household) {
+    const { data: households } = await supabase
+      .from('households')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    household = households?.[0] || null;
+  }
+
+  const capacityKwp = Number(household?.capacity_kwp) || 0;
+  const hasSolar = capacityKwp > 0;
+
   const energyRepo = new SupabaseEnergyReadingRepository(supabase);
   const getHistory = new GetHistoricalReadings(energyRepo);
 
@@ -88,6 +112,8 @@ export default async function HistoricoPage({
   
   let maxSolar = 0;
   let maxSolarDate = new Date();
+  let maxCons = 0;
+  let maxConsDate = new Date();
   let autonomyCount = 0;
 
   summaryDays.forEach(d => {
@@ -95,11 +121,17 @@ export default async function HistoricoPage({
       maxSolar = d.solar;
       maxSolarDate = d.date;
     }
+    if (d.consumption > maxCons) {
+      maxCons = d.consumption;
+      maxConsDate = d.date;
+    }
     if (d.consumption > 0 && d.solar / d.consumption > 0.8) {
       autonomyCount++;
     }
   });
 
+  const avgDailyCons = summaryDays.length > 0 ? (totalConsumption / summaryDays.length) : 0;
+  const totalCostCop = Math.round(totalConsumption * 950);
   const coveragePercent = totalConsumption > 0 ? (totalSolar / totalConsumption) * 100 : 0;
   
   // Time Patterns (Average consumption by hour block across 30 days)
@@ -199,80 +231,148 @@ export default async function HistoricoPage({
             </div>
           </div>
 
-          <div className="glass-card p-5 relative overflow-hidden group">
-            <div className="flex justify-between items-start mb-4">
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">TOTAL SOLAR<br/>GENERADO</p>
-              <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                <Sun className="w-5 h-5 text-amber-500" />
+          {/* Card 2: Solar Generado o Costo Total */}
+          {hasSolar ? (
+            <div className="glass-card p-5 relative overflow-hidden group">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">TOTAL SOLAR<br/>GENERADO</p>
+                <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                  <Sun className="w-5 h-5 text-amber-500" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 mb-4">
+                <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{totalSolar.toFixed(1)}</span>
+                <span className="text-sm font-semibold text-slate-500">kWh</span>
+              </div>
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-md w-fit">
+                <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Cobertura solar</span>
+                <span className="text-xs font-bold text-amber-600">{coveragePercent.toFixed(1)}%</span>
               </div>
             </div>
-            <div className="flex items-baseline gap-1.5 mb-4">
-              <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{totalSolar.toFixed(1)}</span>
-              <span className="text-sm font-semibold text-slate-500">kWh</span>
+          ) : (
+            <div className="glass-card p-5 relative overflow-hidden group">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">COSTO TOTAL<br/>ESTIMADO</p>
+                <div className="p-2 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg">
+                  <Zap className="w-5 h-5 text-indigo-500" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 mb-4 text-slate-900 dark:text-white">
+                <span className="text-xl font-bold">$</span>
+                <span className="text-3xl font-black tracking-tight">{totalCostCop.toLocaleString('es-CO')}</span>
+                <span className="text-sm font-semibold text-slate-500">COP</span>
+              </div>
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 rounded-md w-fit">
+                <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">Tarifa ref.</span>
+                <span className="text-xs font-bold text-indigo-600">$950 COP/kWh</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-amber-50 dark:bg-amber-900/20 rounded-md w-fit">
-              <span className="text-xs font-medium text-amber-700 dark:text-amber-400">Cobertura solar mensual</span>
-              <span className="text-xs font-bold text-amber-600">{coveragePercent.toFixed(1)}%</span>
-            </div>
-          </div>
+          )}
 
-          <div className="glass-card p-5 relative overflow-hidden group">
-            <div className="flex justify-between items-start mb-4">
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">MAYOR<br/>RENDIMIENTO</p>
-              <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                <Sun className="w-5 h-5 text-orange-500" />
+          {/* Card 3: Mayor Rendimiento Solar o Pico de Consumo */}
+          {hasSolar ? (
+            <div className="glass-card p-5 relative overflow-hidden group">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">MAYOR<br/>RENDIMIENTO</p>
+                <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                  <Sun className="w-5 h-5 text-orange-500" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{maxSolar.toFixed(1)}</span>
+                <span className="text-xs font-semibold text-slate-500">kWh</span>
+              </div>
+              <p className="text-xs font-medium text-slate-900 dark:text-slate-200 mb-4 capitalize">
+                {maxSolarDate.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" })}
+              </p>
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-md w-fit border border-slate-100 dark:border-slate-800">
+                <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Radiación óptima</span>
               </div>
             </div>
-            <div className="flex items-baseline gap-1.5 mb-1">
-              <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{maxSolar.toFixed(1)}</span>
-              <span className="text-xs font-semibold text-slate-500">kWh</span>
+          ) : (
+            <div className="glass-card p-5 relative overflow-hidden group">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">PICO DE<br/>CONSUMO</p>
+                <div className="p-2 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                  <Zap className="w-5 h-5 text-amber-500" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 mb-1">
+                <span className="text-xl font-black text-slate-900 dark:text-white tracking-tight">{maxCons.toFixed(1)}</span>
+                <span className="text-xs font-semibold text-slate-500">kWh</span>
+              </div>
+              <p className="text-xs font-medium text-slate-900 dark:text-slate-200 mb-4 capitalize">
+                {maxConsDate.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" })}
+              </p>
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-md w-fit border border-slate-100 dark:border-slate-800">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Día de mayor demanda</span>
+              </div>
             </div>
-            <p className="text-xs font-medium text-slate-900 dark:text-slate-200 mb-4 capitalize">
-              {maxSolarDate.toLocaleDateString("es", { weekday: "long", day: "numeric", month: "long" })}
-            </p>
-            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-md w-fit border border-slate-100 dark:border-slate-800">
-              <div className="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Día despejado, radiación óptima</span>
-            </div>
-          </div>
+          )}
 
-          <div className="glass-card p-5 relative overflow-hidden group">
-            <div className="flex justify-between items-start mb-4">
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">AUTONOMÍA<br/>LOGRADA</p>
-              <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                <Leaf className="w-5 h-5 text-emerald-500" />
+          {/* Card 4: Autonomía o Promedio Diario */}
+          {hasSolar ? (
+            <div className="glass-card p-5 relative overflow-hidden group">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">AUTONOMÍA<br/>LOGRADA</p>
+                <div className="p-2 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                  <Leaf className="w-5 h-5 text-emerald-500" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 mb-4">
+                <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{autonomyCount}</span>
+                <span className="text-sm font-semibold text-slate-500">días {'>'} 80%</span>
+              </div>
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-md w-fit">
+                <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Ahorro estimado</span>
+                <span className="text-xs font-bold text-emerald-600">~${Math.round(totalSolar * 950).toLocaleString('es-CO')} COP</span>
               </div>
             </div>
-            <div className="flex items-baseline gap-1.5 mb-4">
-              <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{autonomyCount}</span>
-              <span className="text-sm font-semibold text-slate-500">días {'>'} 80%</span>
+          ) : (
+            <div className="glass-card p-5 relative overflow-hidden group">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-wider">PROMEDIO<br/>DIARIO</p>
+                <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <Zap className="w-5 h-5 text-blue-500" />
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1.5 mb-4">
+                <span className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{avgDailyCons.toFixed(1)}</span>
+                <span className="text-sm font-semibold text-slate-500">kWh/día</span>
+              </div>
+              <div className="flex items-center gap-2 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md w-fit">
+                <span className="text-xs font-medium text-blue-700 dark:text-blue-400">Ritmo de consumo</span>
+                <span className="text-xs font-bold text-blue-600">Estable</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 rounded-md w-fit">
-              <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">Ahorro estimado</span>
-              <span className="text-xs font-bold text-emerald-600">~${(totalSolar * 0.19).toFixed(2)} USD</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Chart Section */}
         <div className="glass-card p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
             <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Evolución Diaria: Generación Solar vs. Consumo</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Comparativa diaria de los {chartData.length} días registrados en el periodo actual.</p>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                {hasSolar ? 'Evolución Diaria: Generación Solar vs. Consumo' : 'Evolución Diaria del Consumo Eléctrico'}
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Comparativa de los {chartData.length} periodos registrados en el rango seleccionado.</p>
             </div>
             <div className="flex items-center gap-5">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-sm bg-amber-500"></div>
-                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Solar Producida (kWh)</span>
-              </div>
+              {hasSolar && (
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-sm bg-amber-500"></div>
+                  <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Solar Producida (kWh)</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 rounded-sm bg-blue-500"></div>
                 <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Consumo Hogar (kWh)</span>
               </div>
             </div>
           </div>
-          <HistoryChart data={chartData} range={range} />
+          <HistoryChart data={chartData} range={range} hasSolar={hasSolar} />
         </div>
 
         {/* Bottom Section: 2 Columns */}

@@ -16,6 +16,7 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
   // Form states
   const [name, setName] = useState('');
   const [location, setLocation] = useState('Envigado, Antioquia');
+  const [hasSolarPanels, setHasSolarPanels] = useState(true);
   const [capacityKwp, setCapacityKwp] = useState('4.2');
   const [inviteCode, setInviteCode] = useState('');
 
@@ -27,7 +28,7 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
     const formData = new FormData();
     formData.append('name', name);
     formData.append('location', location);
-    formData.append('capacity_kwp', capacityKwp);
+    formData.append('capacity_kwp', hasSolarPanels ? (capacityKwp || '4.2') : '0');
 
     const res = await createHouseholdAction(formData);
     if (!res.success) {
@@ -93,7 +94,7 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
                 Crear un Nuevo Hogar
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6">
-                Configura una nueva vivienda o instalación fotovoltaica desde cero y sé el propietario principal.
+                Configura una nueva vivienda con paneles solares o solo con medición de consumo de red.
               </p>
               <div className="mt-auto flex items-center gap-2 text-xs font-bold text-amber-600 dark:text-amber-400">
                 <span>Configurar ahora</span>
@@ -154,7 +155,7 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
                   <input
                     type="text"
                     required
-                    placeholder="Ej. Hogar Las Palmas o Mi Casa Solar"
+                    placeholder="Ej. Casa Acosta o Apartamento 402"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
@@ -162,40 +163,65 @@ export function HouseholdOnboarding({ userEmail }: HouseholdOnboardingProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Ubicación (Ciudad / Región)
-                  </label>
-                  <div className="relative">
-                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="text"
-                      placeholder="Ej. Envigado, Antioquia"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                    />
-                  </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                  Ubicación (Ciudad / Región)
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    placeholder="Ej. Envigado, Antioquia"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                    Capacidad Solar (kWp)
-                  </label>
-                  <div className="relative">
-                    <Zap className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                    <input
-                      type="number"
-                      step="0.1"
-                      min="0.1"
-                      placeholder="4.2"
-                      value={capacityKwp}
-                      onChange={(e) => setCapacityKwp(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                    />
+              {/* Solar Installation Toggle */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                      <Sun className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">
+                        ¿Cuenta con paneles solares?
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {hasSolarPanels ? 'Monitoreo combinado de consumo y autogeneración' : 'Monitoreo exclusivo de consumo de red eléctrica'}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                  <input
+                    type="checkbox"
+                    checked={hasSolarPanels}
+                    onChange={(e) => setHasSolarPanels(e.target.checked)}
+                    className="w-5 h-5 accent-amber-500 rounded cursor-pointer"
+                  />
+                </label>
+
+                {hasSolarPanels && (
+                  <div className="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      Capacidad Solar Instalada (kWp)
+                    </label>
+                    <div className="relative">
+                      <Zap className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0.1"
+                        placeholder="4.2"
+                        value={capacityKwp}
+                        onChange={(e) => setCapacityKwp(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 flex justify-end gap-3">

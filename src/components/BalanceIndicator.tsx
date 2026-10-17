@@ -3,16 +3,17 @@ import { Scale } from 'lucide-react';
 interface BalanceIndicatorProps {
   consumptionKwh: number;
   solarKwh: number;
+  hasSolar?: boolean;
 }
 
-export function BalanceIndicator({ consumptionKwh, solarKwh }: BalanceIndicatorProps) {
-  const isExporting = solarKwh > consumptionKwh;
-  const netBalance = solarKwh - consumptionKwh;
+export function BalanceIndicator({ consumptionKwh, solarKwh, hasSolar = true }: BalanceIndicatorProps) {
+  const isExporting = hasSolar && solarKwh > consumptionKwh;
+  const netBalance = hasSolar ? solarKwh - consumptionKwh : -consumptionKwh;
   const absBalance = Math.abs(netBalance);
   
-  const solarRatio = consumptionKwh > 0 
+  const solarRatio = hasSolar && consumptionKwh > 0 
     ? Math.min(100, (solarKwh / consumptionKwh) * 100) 
-    : (solarKwh > 0 ? 100 : 0);
+    : (hasSolar && solarKwh > 0 ? 100 : 0);
   
   const gridRatio = Math.max(0, 100 - solarRatio);
 
@@ -29,10 +30,10 @@ export function BalanceIndicator({ consumptionKwh, solarKwh }: BalanceIndicatorP
           </div>
           <div>
             <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Balance de Energía
+              {hasSolar ? 'Balance de Energía' : 'Suministro de Red'}
             </h3>
             <p className="text-xs text-slate-400 dark:text-slate-500">
-              Energía solar vs Consumo de red
+              {hasSolar ? 'Energía solar vs Consumo de red' : 'Consumo continuo de red eléctrica'}
             </p>
           </div>
         </div>
@@ -45,7 +46,11 @@ export function BalanceIndicator({ consumptionKwh, solarKwh }: BalanceIndicatorP
             </span>
             <span className="text-sm font-semibold text-slate-500">kW</span>
           </div>
-          {isExporting ? (
+          {!hasSolar ? (
+            <span className="px-2 py-0.5 rounded bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold border border-blue-200/50">
+              Red Eléctrica
+            </span>
+          ) : isExporting ? (
             <span className="px-2 py-0.5 rounded bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold border border-emerald-200/50">
               Autosuficiente
             </span>
@@ -83,8 +88,12 @@ export function BalanceIndicator({ consumptionKwh, solarKwh }: BalanceIndicatorP
         {/* Two info boxes */}
         <div className="grid grid-cols-2 gap-2 mb-4">
           <div className="bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/50 rounded-lg p-2 flex flex-col justify-center items-center">
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Generando</span>
-            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{solarKwh.toFixed(2)} kW</span>
+            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">
+              {hasSolar ? 'Generando' : 'Solar'}
+            </span>
+            <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
+              {hasSolar ? `${solarKwh.toFixed(2)} kW` : 'No instalado'}
+            </span>
           </div>
           <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 rounded-lg p-2 flex flex-col justify-center items-center">
             <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-0.5">Consumiendo</span>
@@ -95,9 +104,9 @@ export function BalanceIndicator({ consumptionKwh, solarKwh }: BalanceIndicatorP
 
       {/* Footer line */}
       <div className="pt-4 border-t border-slate-100 dark:border-slate-800/50 flex items-center justify-between text-xs">
-        <span className="text-slate-500 dark:text-slate-400">Excedente inyectado:</span>
+        <span className="text-slate-500 dark:text-slate-400">{hasSolar ? 'Excedente inyectado:' : 'Fuente de energía:'}</span>
         <span className={`font-semibold ${isExporting ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'}`}>
-          {isExporting ? `${absBalance.toFixed(2)} kW a favor` : '0.00 kW'}
+          {hasSolar ? (isExporting ? `${absBalance.toFixed(2)} kW a favor` : '0.00 kW') : 'Red comercial (100%)'}
         </span>
       </div>
     </div>

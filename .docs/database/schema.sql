@@ -360,6 +360,11 @@ CREATE POLICY "rls_readings_insert" ON public.energy_readings
   FOR INSERT TO anon, authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "rls_readings_delete" ON public.energy_readings;
+CREATE POLICY "rls_readings_delete" ON public.energy_readings
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
 -- ── 9.5 SYSTEM_ALERTS ──
 ALTER TABLE public.system_alerts ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "rls_alerts_select" ON public.system_alerts;
