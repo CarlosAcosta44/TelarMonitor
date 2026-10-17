@@ -41,12 +41,7 @@ export async function getHouseholdAlertsAction(householdId?: string): Promise<{
     }
 
     if (!targetHouseholdId) {
-      const { data: h } = await supabase
-        .from('households')
-        .select('id')
-        .order('created_at', { ascending: false })
-        .limit(1);
-      targetHouseholdId = h?.[0]?.id;
+      return { success: true, alerts: [] };
     }
 
     let query = supabase
@@ -215,13 +210,17 @@ export async function evaluateTelemetryAlertsAction(householdId?: string): Promi
 
     let targetHouseholdId = householdId;
     if (!targetHouseholdId) {
-      const { data: h } = await supabase
-        .from('households')
-        .select('id, capacity_kwp')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      targetHouseholdId = h?.id;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: members } = await supabase
+          .from('household_members')
+          .select('household_id')
+          .eq('user_id', user.id)
+          .limit(1);
+        if (members && members.length > 0) {
+          targetHouseholdId = members[0].household_id;
+        }
+      }
     }
 
     if (!targetHouseholdId) {

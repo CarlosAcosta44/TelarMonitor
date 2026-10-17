@@ -3,48 +3,37 @@ import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalRead
 import { AlertasClient } from "@/components/AlertasClient";
 import { createClient } from "@/infrastructure/supabase/server";
 import { getHouseholdAlertsAction } from "./actions";
+import { redirect } from "next/navigation";
 
 export const revalidate = 30;
 
 export default async function AlertasPage() {
   const supabase = await createClient();
-  const energyRepo = new SupabaseEnergyReadingRepository(supabase);
-  const getHistory = new GetHistoricalReadings(energyRepo);
 
   // 1. Fetch active household
   const { data: { user } } = await supabase.auth.getUser();
-  let householdId: string | undefined = undefined;
-  let householdName = 'Hogar Las Palmas';
-  let capacityKwp = 4.2;
-
-  if (user) {
-    const { data: memberRows } = await supabase
-      .from('household_members')
-      .select('household_id, households (*)')
-      .eq('user_id', user.id)
-      .limit(1);
-
-    if (memberRows && memberRows.length > 0 && memberRows[0].households) {
-      const h: any = memberRows[0].households;
-      householdId = h.id;
-      householdName = h.name || h.installation_name;
-      capacityKwp = Number(h.capacity_kwp) || 0;
-    }
+  if (!user) {
+    redirect('/login');
   }
 
-  if (!householdId) {
-    const { data: h } = await supabase
-      .from('households')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (h) {
-      householdId = h.id;
-      householdName = h.name || h.installation_name;
-      capacityKwp = Number(h.capacity_kwp) || 0;
-    }
+  const { data: memberRows } = await supabase
+    .from('household_members')
+    .select('household_id, households (*)')
+    .eq('user_id', user.id)
+    .limit(1);
+
+  if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
+    redirect('/');
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const h: any = memberRows[0].households;
+  const householdId = h.id;
+  const householdName = h.name || h.installation_name;
+  const capacityKwp = Number(h.capacity_kwp) || 0;
+
+  const energyRepo = new SupabaseEnergyReadingRepository(supabase, householdId);
+  const getHistory = new GetHistoricalReadings(energyRepo);
 
   // 2. Fetch real alerts and 30d history in parallel
   const [alertsRes, history30dConsumption, history30dSolar] = await Promise.all([

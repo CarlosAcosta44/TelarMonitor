@@ -1,6 +1,7 @@
 import { ConfiguracionClient } from "@/components/ConfiguracionClient";
 import { createClient } from "@/infrastructure/supabase/server";
 import { updateSettings, updatePassword, inviteHouseholdMember, joinHousehold } from "./actions";
+import { redirect } from "next/navigation";
 
 export const revalidate = 0; // Don't cache settings page
 
@@ -9,46 +10,35 @@ export default async function ConfiguracionPage() {
 
   // 1. Get authenticated user
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
 
-  // 2. Fetch household data: first try through household_members if logged in
+  // 2. Fetch household data through household_members
+  const { data: memberRows } = await supabase
+    .from('household_members')
+    .select('household_id, role, households (*)')
+    .eq('user_id', user.id)
+    .limit(1);
+
+  if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
+    redirect('/');
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let household: any = null;
-  if (user) {
-    const { data: memberRows } = await supabase
-      .from('household_members')
-      .select('household_id, role, households (*)')
-      .eq('user_id', user.id)
-      .limit(1);
-
-    if (memberRows && memberRows.length > 0 && memberRows[0].households) {
-      household = memberRows[0].households;
-    }
-  }
-
-  // Fallback if not found through members (e.g. initial setup)
-  if (!household) {
-    const { data: households, error: hError } = await supabase
-      .from('households')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (hError) {
-      console.error('Error fetching household in configuracion/page.tsx:', hError);
-    }
-    household = households && households.length > 0 ? households[0] : null;
-  }
+  const household: any = memberRows[0].households;
 
   // 3. Fetch household members
   const { data: members } = await supabase
     .from('household_members')
     .select('*')
-    .eq('household_id', household?.id || '');
+    .eq('household_id', household.id);
 
-  // 4. Fetch last telemetry pulse from energy_readings
+  // 4. Fetch last telemetry pulse from energy_readings for this household
   const { data: lastReading } = await supabase
     .from('energy_readings')
     .select('recorded_at')
+    .eq('household_id', household.id)
     .order('recorded_at', { ascending: false })
     .limit(1)
     .single();

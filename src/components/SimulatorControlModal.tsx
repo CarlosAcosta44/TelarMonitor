@@ -71,7 +71,7 @@ export function SimulatorControlModal({ isOpen, onClose, household }: SimulatorC
     try {
       const [statusRes, countRes] = await Promise.all([
         getSimulatorStatusAction(),
-        getReadingsCountAction(),
+        getReadingsCountAction(household.id),
       ]);
       setSimulatorStatus(statusRes);
       setRowCount(countRes.count);

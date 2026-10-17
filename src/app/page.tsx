@@ -65,27 +65,22 @@ export default async function DashboardPage({
       .eq('user_id', user.id)
       .limit(1);
 
-    if (!memberRows || memberRows.length === 0) {
+    if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
       return <HouseholdOnboarding userEmail={user.email} />;
     }
     household = memberRows[0]?.households;
   }
 
   if (!household) {
-    const { data: households } = await supabase
-      .from('households')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
-    household = households?.[0] || null;
+    return <HouseholdOnboarding userEmail={user?.email} />;
   }
 
   const capacityKwp = Number(household?.capacity_kwp) || 0;
   const hasSolar = capacityKwp > 0;
   const displayInstallationName = household?.installation_name || household?.name || 'Hogar';
 
-  const energyRepo   = new SupabaseEnergyReadingRepository(supabase);
-  const settingsRepo = new SupabaseSettingsRepository(supabase);
+  const energyRepo   = new SupabaseEnergyReadingRepository(supabase, household.id);
+  const settingsRepo = new SupabaseSettingsRepository(supabase, household.id);
 
   const getConsumption = new GetCurrentConsumption(energyRepo);
   const getSolar       = new GetSolarGeneration(energyRepo);

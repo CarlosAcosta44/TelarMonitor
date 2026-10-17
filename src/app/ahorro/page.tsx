@@ -2,42 +2,36 @@ import { SupabaseEnergyReadingRepository } from "@/infrastructure/supabase/Supab
 import { AhorroChart } from "@/components/AhorroChart";
 import { Leaf, Calendar, TrendingUp, Sun, Banknote, CloudLightning } from "lucide-react";
 import { createClient } from "@/infrastructure/supabase/server";
+import { redirect } from "next/navigation";
 
 export const revalidate = 60;
 
 export default async function AhorroPage() {
   const supabase = await createClient();
-  const energyRepo = new SupabaseEnergyReadingRepository(supabase);
 
   // Fetch active household details
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
+
+  const { data: memberRows } = await supabase
+    .from('household_members')
+    .select('household_id, households (*)')
+    .eq('user_id', user.id)
+    .limit(1);
+
+  if (!memberRows || memberRows.length === 0 || !memberRows[0]?.households) {
+    redirect('/');
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let household: any = null;
-  if (user) {
-    const { data: memberRows } = await supabase
-      .from('household_members')
-      .select('household_id, households (*)')
-      .eq('user_id', user.id)
-      .limit(1);
-
-    if (memberRows && memberRows.length > 0 && memberRows[0].households) {
-      household = memberRows[0].households;
-    }
-  }
-
-  if (!household) {
-    const { data: households } = await supabase
-      .from('households')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(1);
-    household = households?.[0] || null;
-  }
-
+  const household: any = memberRows[0].households;
   const installationName = household?.installation_name || household?.name || 'Tu Instalación Solar';
   const TARIFA = Number(household?.energy_rate_cop_per_kwh) || 950;
   const EXPORT_RATE = Number(household?.export_rate) || 650;
 
+  const energyRepo = new SupabaseEnergyReadingRepository(supabase, household.id);
   // Fetch exactly the daily summaries for 2026
   const summaries = await energyRepo.getDailySummaries(2026).catch(() => []);
 
