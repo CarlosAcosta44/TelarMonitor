@@ -4,13 +4,15 @@ import { GetCurrentConsumption } from "@/application/use-cases/GetCurrentConsump
 import { GetSolarGeneration } from "@/application/use-cases/GetSolarGeneration";
 import { GetHistoricalReadings } from "@/application/use-cases/GetHistoricalReadings";
 import { GetDailySummary } from "@/application/use-cases/GetDailySummary";
+import { createClient } from "@/infrastructure/supabase/server";
+import { getActiveHousehold } from "@/infrastructure/supabase/householdService";
 
 import { ConsumptionCard } from "@/components/ConsumptionCard";
 import { SolarCard } from "@/components/SolarCard";
 import { BalanceIndicator } from "@/components/BalanceIndicator";
 import { HistoryChart, ChartDataPoint } from "@/components/HistoryChart";
-import { DashboardRefresher } from "@/components/DashboardRefresher";
 import { PdfExportButton } from "@/components/PdfExportButton";
+import { HouseholdOnboarding } from "@/components/HouseholdOnboarding";
 import { AlertCircle, Clock, Info, Zap, Sun, PiggyBank, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
@@ -50,8 +52,40 @@ export default async function DashboardPage({
 
   if (!isSupabaseConfigured) return <ConfigurationError />;
 
-  const energyRepo   = new SupabaseEnergyReadingRepository();
-  const settingsRepo = new SupabaseSettingsRepository();
+  const supabase = await createClient();
+
+  const notice = typeof resolvedParams.notice === 'string' ? resolvedParams.notice : undefined;
+
+  // Check if authenticated user has a household and resolve installation details
+  const { data: { user } } = await supabase.auth.getUser();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let household: any = null;
+
+  if (user) {
+    const { activeHousehold } = await getActiveHousehold(supabase, user.id);
+    if (!activeHousehold || resolvedParams.action === 'create_household') {
+      return (
+        <HouseholdOnboarding 
+          userEmail={user.email} 
+          notice={notice} 
+          initialMode={resolvedParams.action === 'create_household' ? 'create' : 'choose'}
+          showCancel={!!activeHousehold}
+        />
+      );
+    }
+    household = activeHousehold;
+  }
+
+  if (!household) {
+    return <HouseholdOnboarding userEmail={user?.email} notice={notice} />;
+  }
+
+  const capacityKwp = Number(household?.capacity_kwp) || 0;
+  const hasSolar = capacityKwp > 0;
+  const displayInstallationName = household?.installation_name || household?.name || 'Hogar';
+
+  const energyRepo   = new SupabaseEnergyReadingRepository(supabase, household.id);
+  const settingsRepo = new SupabaseSettingsRepository(supabase, household.id);
 
   const getConsumption = new GetCurrentConsumption(energyRepo);
   const getSolar       = new GetSolarGeneration(energyRepo);
@@ -66,7 +100,7 @@ export default async function DashboardPage({
     currentConsumption,
     currentSolar,
     dailySummary,
-    installationName,
+    _installationNameSetting,
     historyConsumption,
     historySolar,
   ] = await Promise.all([
@@ -124,7 +158,7 @@ export default async function DashboardPage({
     addData(historySolar, 'solar');
 
     // Convert map to array and format label
-    chartData = Array.from(dailyData.entries()).map(([dayKey, values]) => {
+    const allDays = Array.from(dailyData.entries()).map(([dayKey, values]) => {
       const date = new Date(dayKey + 'T12:00:00Z');
       let labelFormat: Intl.DateTimeFormatOptions = { weekday: "short" };
       if (range === '30d') labelFormat = { day: "2-digit", month: "short" };
@@ -135,12 +169,18 @@ export default async function DashboardPage({
         solar: Number(values.solar.toFixed(2)),
       };
     });
+
+    if (range === '7d') {
+      chartData = allDays.slice(-7);
+    } else if (range === '30d') {
+      chartData = allDays.slice(-30);
+    } else {
+      chartData = allDays;
+    }
   }
 
   return (
     <>
-      <DashboardRefresher intervalMs={10_000} />
-
       <div className="flex flex-col gap-6">
 
         {/* ── Dashboard Heading ─── */}
@@ -156,7 +196,7 @@ export default async function DashboardPage({
               </span>
             </div>
             <p className="text-sm text-slate-500 dark:text-slate-400 capitalize">
-              {installationName || "Mi Instalación Solar"} <span className="mx-2">•</span> {today}
+              {displayInstallationName} <span className="mx-2">•</span> {today}
             </p>
           </div>
 
@@ -178,11 +218,11 @@ export default async function DashboardPage({
               <Info className="w-4 h-4 text-amber-700 dark:text-amber-500" />
             </div>
             <p className="text-sm text-amber-900 dark:text-amber-200">
-              <span className="font-bold">Aviso del sistema:</span> Visualización con datos demostrativos en vivo para validación de interfaz — Conectado a servidor local.
+              <span className="font-bold">Aviso del sistema:</span> Visualización con datos en vivo y sincronización en tiempo real.
             </p>
           </div>
           <span className="text-xs font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider">
-            SISTEMA ESTABLE
+            SISTEMA ACTIVO
           </span>
         </div>
 
@@ -207,46 +247,71 @@ export default async function DashboardPage({
               </div>
             </div>
 
-            {/* Solar Generado */}
-            <div className="glass-card p-6 flex items-start gap-4">
-              <div className="p-3 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
-                <Sun className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Solar Generado</p>
-                <div className="flex items-center flex-wrap gap-2">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold tabular-nums text-slate-900 dark:text-white">
-                      {dailySummary ? dailySummary.solarKwh.toFixed(2) : "0.00"}
-                    </span>
-                    <span className="text-sm font-medium text-slate-500">kWh</span>
-                  </div>
-                  {dailySummary && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200/50">
-                      {Math.min(100, (dailySummary.solarKwh / Math.max(0.1, dailySummary.consumptionKwh)) * 100).toFixed(0)}% Cobertura Solar
-                    </span>
-                  )}
+            {/* Solar Generado o Costo del Día si no tiene solar */}
+            {hasSolar ? (
+              <div className="glass-card p-6 flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
+                  <Sun className="w-6 h-6" />
                 </div>
-                <p className="text-xs text-slate-500 mt-1">en el ciclo de hoy</p>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Solar Generado</p>
+                  <div className="flex items-center flex-wrap gap-2">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-bold tabular-nums text-slate-900 dark:text-white">
+                        {dailySummary ? dailySummary.solarKwh.toFixed(2) : "0.00"}
+                      </span>
+                      <span className="text-sm font-medium text-slate-500">kWh</span>
+                    </div>
+                    {dailySummary && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200/50">
+                        {Math.min(100, (dailySummary.solarKwh / Math.max(0.1, dailySummary.consumptionKwh)) * 100).toFixed(0)}% Cobertura Solar
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">en el ciclo de hoy</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="glass-card p-6 flex items-start gap-4">
+                <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400">
+                  <Zap className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Costo Estimado Hoy</p>
+                  <div className="flex items-baseline gap-1 text-slate-900 dark:text-white">
+                    <span className="text-2xl font-bold">$</span>
+                    <span className="text-3xl font-bold tabular-nums">
+                      {dailySummary ? Math.round(dailySummary.consumptionKwh * 950).toLocaleString('es-CO') : "0"}
+                    </span>
+                    <span className="text-sm font-medium text-slate-500">COP</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Tarifa ref. $950 COP/kWh</p>
+                </div>
+              </div>
+            )}
 
-            {/* Ahorro Estimado */}
+            {/* Ahorro Estimado (con solar) o Proyección Mes (sin solar) */}
             <div className="glass-card p-6 flex items-start gap-4">
               <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
                 <PiggyBank className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Ahorro Estimado</p>
+                <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                  {hasSolar ? 'Ahorro Estimado' : 'Proyección Mensual'}
+                </p>
                 <div className="flex items-baseline gap-1 text-emerald-600 dark:text-emerald-400">
                   <span className="text-2xl font-bold">$</span>
                   <span className="text-3xl font-bold tabular-nums">
-                    {dailySummary ? dailySummary.savingsCop.toLocaleString('es-CO') : "0"}
+                    {hasSolar
+                      ? (dailySummary ? dailySummary.savingsCop.toLocaleString('es-CO') : "0")
+                      : (dailySummary ? Math.round(dailySummary.consumptionKwh * 950 * 30).toLocaleString('es-CO') : "0")}
                   </span>
                   <span className="text-sm font-bold">COP</span>
-                  <span className="text-xs ml-1 text-slate-500">hoy</span>
+                  <span className="text-xs ml-1 text-slate-500">{hasSolar ? 'hoy' : 'estimado'}</span>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Tarifa ref. $950 COP/kWh • Mes: <strong className="text-slate-700 dark:text-slate-300">$420.000 COP</strong></p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {hasSolar ? 'Generación propia aprovechada' : 'Basado en promedio de consumo diario'}
+                </p>
               </div>
             </div>
           </div>
@@ -254,10 +319,15 @@ export default async function DashboardPage({
 
         {/* ── Real-time cards (Row 2) ─── */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          <ConsumptionCard valueKwh={consumptionKwh} />
-          <SolarCard valueKwh={solarKwh} consumptionKwh={consumptionKwh} />
+          <ConsumptionCard 
+            valueKwh={consumptionKwh} 
+            totalKwh={dailySummary ? dailySummary.consumptionKwh : 11.9} 
+            hasSolar={hasSolar} 
+          />
+          <SolarCard valueKwh={solarKwh} consumptionKwh={consumptionKwh} hasSolar={hasSolar} />
+
           <div className="md:col-span-2 xl:col-span-1 h-full">
-            <BalanceIndicator consumptionKwh={consumptionKwh} solarKwh={solarKwh} />
+            <BalanceIndicator consumptionKwh={consumptionKwh} solarKwh={solarKwh} hasSolar={hasSolar} />
           </div>
         </div>
 
@@ -269,12 +339,18 @@ export default async function DashboardPage({
                 <TrendingUp className="w-5 h-5 text-amber-600" />
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Histórico de Energía</h3>
               </div>
-              <p className="text-sm text-slate-500">Compara la producción de tus paneles frente al consumo en cada hora del día</p>
+              <p className="text-sm text-slate-500">
+                {hasSolar
+                  ? 'Compara la producción de tus paneles frente al consumo en cada intervalo'
+                  : 'Evolución y seguimiento detallado de tu consumo eléctrico'}
+              </p>
             </div>
-            {/* Legend & Controls Placeholder */}
+            {/* Legend & Controls */}
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-4 text-xs font-bold">
-                <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-amber-500"></span> Solar</span>
+                {hasSolar && (
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-amber-500"></span> Solar</span>
+                )}
                 <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded-full bg-blue-500"></span> Consumo</span>
               </div>
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
@@ -284,7 +360,7 @@ export default async function DashboardPage({
               </div>
             </div>
           </div>
-          <HistoryChart data={chartData} range={range as '24h'|'7d'|'30d'} />
+          <HistoryChart data={chartData} range={range as '24h'|'7d'|'30d'} hasSolar={hasSolar} />
         </div>
       </div>
     </>

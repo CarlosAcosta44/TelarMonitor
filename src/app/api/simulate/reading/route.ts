@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { SimulationService } from '../../../../infrastructure/simulation/SimulationService';
 import { SupabaseEnergyReadingRepository } from '../../../../infrastructure/supabase/SupabaseEnergyReadingRepository';
+import { createAnonClient } from '../../../../infrastructure/supabase/client';
 
 export async function POST() {
   try {
-    const repository = new SupabaseEnergyReadingRepository();
+    const repository = new SupabaseEnergyReadingRepository(createAnonClient());
     const simulationService = new SimulationService(repository);
     
     // Generate a single reading tick (both consumption and solar)

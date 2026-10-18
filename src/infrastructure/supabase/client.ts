@@ -4,6 +4,11 @@ import fetch from 'cross-fetch';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  global: { fetch },
-});
+export function createAnonClient() {
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: { fetch },
+  });
+}
+
+export const supabase = createAnonClient();
+

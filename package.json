@@ -1,14 +1,21 @@
 {
   "name": "telar-monitor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "NODE_OPTIONS=--dns-result-order=ipv4first next dev",
     "build": "NODE_OPTIONS=--dns-result-order=ipv4first next build",
     "start": "NODE_OPTIONS=--dns-result-order=ipv4first next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:clean": "node scripts/clean-readings.mjs",
+    "simulate:seed": "node scripts/seed-readings.mjs --days=30",
+    "simulate:seed:7": "node scripts/seed-readings.mjs --days=7",
+    "simulate:seed:30": "node scripts/seed-readings.mjs --days=30",
+    "simulate:tick": "node -e \"fetch('http://localhost:3000/api/simulate/reading',{method:'POST'}).then(r=>r.json()).then(console.log)\"",
+    "simulate:live": "node simulate-live.js"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.112.3",
     "clsx": "^2.1.1",
     "cross-fetch": "^4.1.0",

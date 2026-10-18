@@ -3,8 +3,9 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from '@/components/ThemeProvider';
+import { createClient } from '@/infrastructure/supabase/browser';
 import { 
   LayoutDashboard, 
   TrendingUp, 
@@ -12,70 +13,200 @@ import {
   BellRing, 
   Settings,
   Sun,
-  Moon
+  Moon,
+  LogOut,
+  X
 } from 'lucide-react';
+import { AccountProfileModal } from '@/components/AccountProfileModal';
+import { getHouseholdAlertsAction } from '@/app/alertas/actions';
 
-const navItems = [
-  { name: 'Dashboard Principal', href: '/', icon: LayoutDashboard },
-  { name: 'Histórico y Tendencias', href: '/historico', icon: TrendingUp },
-  { name: 'Comparativa y Ahorro', href: '/ahorro', icon: PiggyBank },
-  { name: 'Alertas del Sistema', href: '/alertas', icon: BellRing, badge: 1 },
-  { name: 'Configuración Hogar', href: '/configuracion', icon: Settings },
-];
+interface SidebarProps {
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
+}
 
-export function Sidebar() {
+export function Sidebar({ mobileOpen = false, onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
+  const [userEmail, setUserEmail] = React.useState<string | null>(null);
+  const [householdName, setHouseholdName] = React.useState<string>('...');
+  const [userName, setUserName] = React.useState<string>('Usuario');
+  const [userRole, setUserRole] = React.useState<string>('owner');
+  const [isAccountModalOpen, setIsAccountModalOpen] = React.useState<boolean>(false);
+  const [alertsCount, setAlertsCount] = React.useState<number>(0);
+
+  // Dynamic alerts count loader
+  React.useEffect(() => {
+    async function loadAlertsCount() {
+      try {
+        const res = await getHouseholdAlertsAction();
+        if (res.success && res.alerts) {
+          const active = res.alerts.filter(a => !a.is_resolved).length;
+          setAlertsCount(active);
+        }
+      } catch (err) {
+        console.warn('Error loading alerts count in sidebar:', err);
+      }
+    }
+
+    loadAlertsCount();
+    const onAlertsUpdate = () => loadAlertsCount();
+    window.addEventListener('alerts-updated', onAlertsUpdate);
+    const interval = setInterval(loadAlertsCount, 30000);
+    return () => {
+      window.removeEventListener('alerts-updated', onAlertsUpdate);
+      clearInterval(interval);
+    };
+  }, [pathname]);
 
   React.useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
+    // 1. Listen for immediate client-side updates (e.g. after saving in Settings)
+    const onUpdate = (e: Event) => {
+      const detail = (e as CustomEvent<{ name?: string }>).detail;
+      if (detail?.name) {
+        setHouseholdName(detail.name);
+      }
+    };
+    window.addEventListener('household-updated', onUpdate);
+    return () => window.removeEventListener('household-updated', onUpdate);
   }, []);
 
+  React.useEffect(() => {
+    const supabase = createClient();
+    async function loadUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) {
+        setUserEmail(user.email);
+      }
+      
+      if (user) {
+        if (user.user_metadata?.full_name) {
+          setUserName(user.user_metadata.full_name);
+        } else if (user.email) {
+          setUserName(user.email.split('@')[0]);
+        }
+
+        // Fetch household through member relation for the current user
+        const { data: memberRows } = await supabase
+          .from('household_members')
+          .select('household_id, role, households (id, name, installation_name)')
+          .eq('user_id', user.id);
+
+        if (memberRows && memberRows.length > 0) {
+          // Read active household cookie
+          const cookieMatch = document.cookie.match(/telar_active_household_id=([^;]+)/);
+          const activeId = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const valid = memberRows.filter((r: any) => r.households);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const matched = activeId ? valid.find((r: any) => r.household_id === activeId) : null;
+          const current = matched || valid[0];
+
+          if (current) {
+            if (current.role) setUserRole(current.role);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const h = current.households as any;
+            const name = h?.installation_name || h?.name;
+            if (name) {
+              setHouseholdName(name);
+            }
+            return;
+          }
+        } else {
+          setHouseholdName('Sin Hogar Vinculado');
+          return;
+        }
+      } else {
+        setUserEmail(null);
+        setUserName('Invitado');
+        setHouseholdName('Sin Sesión');
+      }
+    }
+    loadUser();
+  }, [pathname]);
+
+  const handleLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  };
+
+  const navItems = [
+    { name: 'Dashboard Principal', href: '/', icon: LayoutDashboard },
+    { name: 'Histórico y Tendencias', href: '/historico', icon: TrendingUp },
+    { name: 'Comparativa y Ahorro', href: '/ahorro', icon: PiggyBank },
+    { name: 'Alertas del Sistema', href: '/alertas', icon: BellRing, badge: alertsCount > 0 ? alertsCount : undefined },
+    { name: 'Configuración Hogar', href: '/configuracion', icon: Settings },
+  ];
+
   return (
-    <aside className="w-64 h-screen bg-white dark:bg-[#0B1628] border-r border-slate-200/80 dark:border-slate-800 flex flex-col fixed left-0 top-0 transition-colors duration-300">
-      {/* Brand Header */}
-      <div className="h-20 flex items-center px-6 border-b border-slate-200/80 dark:border-slate-800 transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 flex items-center justify-center">
-            <img src="/logo.png" alt="Telar Logo" className="w-full h-full object-contain" />
-          </div>
-          <div>
-            <h1 className="font-bold text-slate-900 dark:text-slate-100 leading-tight transition-colors duration-300">Telar Monitor</h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors duration-300">Energía en tiempo real</p>
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {mobileOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
+          onClick={onCloseMobile}
+        />
+      )}
+
+      <aside className={`w-64 h-screen bg-white dark:bg-[#0B1628] border-r border-slate-200/80 dark:border-slate-800 flex flex-col fixed left-0 top-0 transition-transform duration-300 z-50 ${mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}>
+        {/* Brand Header */}
+        <div className="h-20 flex items-center px-6 border-b border-slate-200/80 dark:border-slate-800 transition-colors duration-300">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 flex items-center justify-center">
+                <img src="/logo.png" alt="Telar Logo" className="w-full h-full object-contain" />
+              </div>
+              <div>
+                <h1 className="font-bold text-slate-900 dark:text-slate-100 leading-tight transition-colors duration-300">Telar Monitor</h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400 transition-colors duration-300">Energía en tiempo real</p>
+              </div>
+            </div>
+            {onCloseMobile && (
+              <button
+                onClick={onCloseMobile}
+                className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                aria-label="Cerrar menú"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
-      </div>
 
-      {/* Simulator Status (MVP only) */}
-      <div className="px-4 py-4">
-        <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-full px-3 py-1.5 flex items-center justify-between transition-colors duration-300">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">En Vivo (Simulación MVP)</span>
+        {/* System Status */}
+        <div className="px-4 py-4">
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-full px-3 py-1.5 flex items-center justify-between transition-colors duration-300">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Sistema Conectado</span>
+            </div>
+            <span className="text-[10px] font-mono font-medium text-emerald-600 dark:text-emerald-500">Online</span>
           </div>
-          <span className="text-[10px] font-mono font-medium text-emerald-600 dark:text-emerald-500">10s</span>
         </div>
-      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 py-2 space-y-1">
-        <p className="px-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
-          NAVEGACIÓN
-        </p>
-        {navItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                isActive 
-                  ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100 border border-amber-200/80 dark:border-amber-700/50' 
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'
-              }`}
-            >
+        {/* Navigation */}
+        <nav className="flex-1 px-4 py-2 space-y-1">
+          <p className="px-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+            NAVEGACIÓN
+          </p>
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                onClick={onCloseMobile}
+                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  isActive 
+                    ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100 border border-amber-200/80 dark:border-amber-700/50' 
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-transparent'
+                }`}
+              >
               <div className="flex items-center gap-3">
                 <item.icon className={`w-4 h-4 ${isActive ? 'text-amber-600 dark:text-amber-500' : 'text-slate-400 dark:text-slate-500'}`} />
                 {item.name}
@@ -116,17 +247,43 @@ export function Sidebar() {
           </button>
         </div>
 
-        {/* User Profile */}
-        <div className="flex items-center gap-3 p-2 hover:bg-slate-100 dark:hover:bg-slate-800/50 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-700">
-          <div className="w-8 h-8 rounded-full bg-slate-300 overflow-hidden">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User avatar" />
+        {/* User Profile & Logout */}
+        <div 
+          onClick={() => setIsAccountModalOpen(true)}
+          className="flex items-center justify-between p-2 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
+        >
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+              {userName.slice(0, 2).toUpperCase()}
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate">{householdName}</p>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{userEmail || 'usuario@telar.co'}</p>
+            </div>
           </div>
-          <div className="flex-1 overflow-hidden">
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">Hogar Las Palmas</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">Mi Instalación Solar</p>
-          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLogout();
+            }}
+            title="Cerrar Sesión"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </aside>
+
+    <AccountProfileModal
+      isOpen={isAccountModalOpen}
+      onClose={() => setIsAccountModalOpen(false)}
+      userEmail={userEmail || 'usuario@telar.co'}
+      userName={userName}
+      householdName={householdName}
+      role={userRole}
+    />
+  </>
   );
 }
+
